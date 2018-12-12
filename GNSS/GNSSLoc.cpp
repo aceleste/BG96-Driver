@@ -1,9 +1,19 @@
 #include "GNSSLoc.h"
 #include "mbed_mktime.h"
 
+COG::COG()
+{}
+
+COG::~COG()
+{}
+
 GNSSLoc::GNSSLoc()
 {
 }
+
+GNSSLoc::~GNSSLoc()
+{}
+
 
 GNSSLoc::GNSSLoc(const GNSSLoc& loc)
 {
@@ -16,19 +26,27 @@ GNSSLoc::GNSSLoc(const GNSSLoc& loc)
     spkm            = loc.spkm;
     spkn            = loc.spkn;
     nsat            = loc.nsat;
-    cog.setDegrees(loc.cog.getDegrees);
-    cog.setMinutes(loc.cog.getMinutes);
+    cog             = loc.cog;
 }
 
 GNSSLoc::GNSSLoc(const char* locationstring)
 {
-    char datestr[6];
     int cogdeg, cogmin;
     int dummy;
     tm time;
-    sscanf(locationstring, "%2d%2d%2d.%d,%.5f,%.5f,%.1f,%.1f,%d,%d.%d,%.1f,%.1f,%2d%2d%2d,%d",
-        time.tm_hour, time.tm_min, time.tm_sec, dummy, latitude, longitude, hdop, altitude, fix, cogdeg, cogmin, spkm, spkn, datestr, nsat);
+    sscanf(locationstring, "%2d%2d%2d.%d,%f,%f,%f,%f,%d,%d.%d,%f,%f,%2d%2d%2d,%d",
+        &(time.tm_hour), &(time.tm_min), &(time.tm_sec), &dummy, 
+        &latitude, 
+        &longitude, 
+        &hdop, 
+        &altitude, 
+        &fix, 
+        &cogdeg, &cogmin, 
+        &spkm, 
+        &spkn, 
+        &(time.tm_mday), &(time.tm_mon), &(time.tm_year), 
+        &nsat);
     cog.setDegrees(cogdeg);
     cog.setMinutes(cogmin);
-    _rtc_mktime(&time, &gnssutctime, RTC_4_YEAR_LEAP_YEAR_SUPPORT);
+    _rtc_maketime(&time, &gnssutctime, RTC_4_YEAR_LEAP_YEAR_SUPPORT);
 }

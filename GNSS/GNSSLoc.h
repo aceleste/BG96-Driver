@@ -7,8 +7,8 @@ class COG
 public:
     COG();
     ~COG();
-    void setDegrees(int degrees) { degrees = degrees; };
-    void setMinutes(int minutes) { minutes = minutes; };
+    void setDegrees(const int degrees) { this->degrees = degrees; };
+    void setMinutes(const int minutes) { this->minutes = minutes; };
     int getDegrees() { return degrees; };
     int getMinutes() { return minutes; };
 
@@ -22,9 +22,8 @@ class GNSSLoc
 public:
     GNSSLoc(void);
     GNSSLoc(const GNSSLoc& loc);
-    GNSSLoc(char* locstring);    
+    GNSSLoc(const char* locstring);    
     ~GNSSLoc();
-    GNSSLoc& operator=(const GNSSLoc& rhs) {};
     time_t getGNSSTime() {return gnssutctime;};
     float getGNSSLatitude() {return latitude; };
     float getGNSSLongitude() {return longitude; };

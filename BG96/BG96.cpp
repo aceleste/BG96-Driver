@@ -33,6 +33,7 @@
 #include "mbed.h"
 #include "mbed_debug.h"
 #include "BG96.h"
+#include "GNSSLoc.h"
 
 #define BG96_1s_WAIT            1000   //will wait for 1 second for startup
 #define BG96_60s_TO             60000  //wait 60 seconds
@@ -647,7 +648,7 @@ int BG96::isGNSSOn(void)
     bool done;
     _bg96_mutex.lock();
     _parser.set_timeout(BG96_1s_WAIT);
-    done = (_parser.send("AT+QGPS?") && _parser.recv("+QGPS: %d", state));
+    done = (_parser.send("AT+QGPS?") && _parser.recv("+QGPS: %d", &state));
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
     return done ? state : -1;
@@ -660,7 +661,7 @@ bool BG96::updateGNSSLoc(void)
     bool done;
     _bg96_mutex.lock();
     _parser.set_timeout(BG96_60s_TO);  
-    done = (_parser.send("AT+QGPSLOC=2") && _parser.recv("+%s: %s", cmd, locationstring) && cmd == "QGPSLOC") ;  
+    done = (_parser.send("AT+QGPSLOC=2") && _parser.recv("+%s: %s", cmd, locationstring) && strcmp(cmd, "QGPSLOC") == 0) ;  
     _parser.set_timeout(BG96_AT_TIMEOUT);
     if (done) {
         GNSSLoc * loc = new GNSSLoc(locationstring);
