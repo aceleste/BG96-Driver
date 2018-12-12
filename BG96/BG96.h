@@ -59,6 +59,35 @@
 #define MBED_CONF_BG96_LIBRARY_BG96_PWRKEY            NC
 #endif // !defined(TARGET_FF_ARDUINO)
 
+#if !define MBED_CONF_BG96_LIBRARY_BG96_GNSS_OUTPORT
+#define MBED_CONF_BG96_LIBRARY_BG96_GNSS_OUTPORT                "usbnmea"
+#endif 
+#if !define MBED_CONF_BG96_LIBRARY_BG96_GNSS_NMEASRC
+#define MBED_CONF_BG96_LIBRARY_BG96_GNSS_NMEASRC                1
+#endif 
+#if !define MBED_CONF_BG96_LIBRARY_BG96_GNSS_GPSNMNEATYPE
+#define MBED_CONF_BG96_LIBRARY_BG96_GNSS_GPSNMNEATYPE           8
+#endif 
+#if !define MBED_CONF_BG96_LIBRARY_BG96_GNSS_GLONASSNMNEATYPE
+#define MBED_CONF_BG96_LIBRARY_BG96_GNSS_GLONASSNMNEATYPE       0
+#endif 
+#if !define MBED_CONF_BG96_LIBRARY_BG96_GNSS_GALILEONMNEATYPE
+#define MBED_CONF_BG96_LIBRARY_BG96_GNSS_GALILEONMNEATYPE       0
+#endif
+#if !define MBED_CONF_BG96_LIBRARY_BG96_GNSS_BEIDOUNMNEATYPE
+#define MBED_CONF_BG96_LIBRARY_BG96_GNSS_BEIDOUNMNEATYPE        0
+#endif
+#if !define MBED_CONF_BG96_LIBRARY_BG96_GNSS_GSVEXTNMEATYPE
+#define MBED_CONF_BG96_LIBRARY_BG96_GNSS_GSVEXTNMEATYPE         0
+#endif
+#if !define MBED_CONF_BG96_LIBRARY_BG96_GNSS_GNSSCONFIG
+#define MBED_CONF_BG96_LIBRARY_BG96_GNSS_GNSSCONFIG             1
+#endif
+#if !define MBED_CONF_BG96_LIBRARY_BG96_GNSS_AUTOGPS
+#define MBED_CONF_BG96_LIBRARY_BG96_GNSS_AUTOGPS                0
+#endif
+
+
 /** BG96Interface class.
     Interface to a BG96 module.
  */
@@ -226,6 +255,10 @@ public:
      *  @param          socket to check
      */
     bool        chkRxAvail(int id);
+
+    /** Return true/false if configuration ok/failed 
+     */
+    bool        configureGNSS(void);    
 
 private:
     bool        tx2bg96(char* cmd);

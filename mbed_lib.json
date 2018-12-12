@@ -28,6 +28,42 @@
         "bg96-pwrkey": {
             "help": "BG96 PWRKEY pin",
             "value": "D10"
+        },
+        "bg96-gnss-outport": {
+            "help": "BG96 port to which NMEA phrases will be output. Options are none, usbnmea, uartnmea",
+            "value": "usbnmea"
+        },
+        "bg96-gnss-nmeasrc": {
+            "help": "Allow/disable Acquisition of NMEA sentences via AT+QGPSNMEA. Value O or 1.",
+            "value": 1
+        },
+        "bg96-gnss-gpsnmeatype": {
+            "help": "GPS NMEA Sentence type - (0-Disable, 1-GGA, 2-RMC, 4-GSV, 8-GSA, 16-VTG).",
+            "value": 8
+        },
+        "bg96-gnss-glonassnmeatype": {
+            "help": "GLONASS NMEA Sentence type - (0-Disable, 1-GSV, 2-GSA, 4-GNS).",
+            "value": 0
+        },
+        "bg96-gnss-galileonmeatype": {
+            "help": "GALILEO NMEA Sentence type - (0-Disable, 1-GSV).",
+            "value": 0
+        },
+        "bg96-gnss-beidounmeatype": {
+            "help": "BEIDOU NMEA Sentence type - (0-Disable, 1-GSA, 2-GSV).",
+            "value": 0
+        },
+        "bg96-gnss-gsvextnmeatype": {
+            "help": "Use extended GSV NMEA Type - (0-Disable, 1-Enable).",
+            "value": 0
+        },
+        "bg96-gnss-gnssconfig": {
+            "help": "Glonass/BeiDou/Galileo selection (see GNNS AT Commands Manual",
+            "value": 1
+        },
+        "bg96-gnss-autogps": {
+            "help": "Enable/Disable GNSS to Run Automatically (0-Disabled, 1-Enabled)",
+            "value": 0
         }
     },
     "target_overrides": {
