@@ -33,6 +33,10 @@
 #define __BG96_H__
 
 #include "mbed.h"
+
+#define none        "none"
+#define usbnmea     "usbnmea"
+#define uartnmea    "uartnmea"
  
 // If target board does not support Arduino pins, define pins as Not Connected
 #if defined(TARGET_FF_ARDUINO)
