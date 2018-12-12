@@ -91,10 +91,11 @@ BG96::BG96(bool debug) :
     _parser.debug_on(debug);
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _parser.set_delimiter("\r\n");
+    _gnss_loc = NULL;
 }
 
 BG96::~BG96(void)
-{ }
+{ delete(_gnss_loc); }
 
 /** ----------------------------------------------------------
 * @brief  get BG96 SW version
@@ -218,6 +219,9 @@ bool BG96::startup(void)
         done = tx2bg96((char*)"AT+COPS?");
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
+    if (done) { 
+        done = configureGNSS();
+    }
     return done;
  }
 
@@ -615,5 +619,68 @@ bool BG96::configureGNSS()
     }
     _bg96_mutex.unlock();
     return done;
+}
+
+bool BG96::startGNSS(void)
+{
+    _bg96_mutex.lock();
+    bool done = ( _parser.send("AT+QGPS=%d,%d,%d,%d,%d", MBED_CONF_BG96_LIBRARY_BG96_GNSS_GNSSMODE, 
+                                                        MBED_CONF_BG96_LIBRARY_BG96_GNSS_FIXMAXTIME,
+                                                        MBED_CONF_BG96_LIBRARY_BG96_GNSS_FIXMAXDIST,
+                                                        MBED_CONF_BG96_LIBRARY_BG96_GNSS_FIXCOUNT,
+                                                        MBED_CONF_BG96_LIBRARY_BG96_GNSS_FIXRATE) && _parser.recv("OK") );
+    _bg96_mutex.unlock();
+    return done;
+}
+
+bool BG96::stopGNSS(void)
+{
+    _bg96_mutex.lock();
+    bool done = ( _parser.send("AT+QGPSEND") && _parser.recv("OK") );
+    _bg96_mutex.unlock();
+    return done;   
+}
+
+int BG96::isGNSSOn(void)
+{
+    int state;
+    bool done;
+    _bg96_mutex.lock();
+    _parser.set_timeout(BG96_1s_WAIT);
+    done = (_parser.send("AT+QGPS?") && _parser.recv("+QGPS: %d", state));
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return done ? state : -1;
+}
+
+bool BG96::updateGNSSLoc(void)
+{
+    char locationstring[120];
+    char cmd[8];
+    bool done;
+    _bg96_mutex.lock();
+    _parser.set_timeout(BG96_60s_TO);  
+    done = (_parser.send("AT+QGPSLOC=2") && _parser.recv("+%s: %s", cmd, locationstring) && cmd == "QGPSLOC") ;  
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    if (done) {
+        GNSSLoc * loc = new GNSSLoc(locationstring);
+        if (loc != NULL){ 
+            delete(_gnss_loc); //free previous loc
+            _gnss_loc = loc;
+            done = true; 
+        } else {
+            done = false;
+        }
+    }
+    _bg96_mutex.unlock();
+    return done;
+}
+
+GNSSLoc * BG96::getGNSSLoc()
+{
+    _bg96_mutex.lock();
+    GNSSLoc * result = new GNSSLoc(*_gnss_loc); 
+    _bg96_mutex.unlock();
+    return result;
 }
 

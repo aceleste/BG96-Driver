@@ -82,3 +82,6 @@ The bg96-debug-settings allow you to select various types of debug output.  It i
 The driver is designed to use a baud rater of 115200 so this must be specified (it will default to 9600 otherwise).  The 
 convert-newlines helps terminal output format by removing the requirment to modify the terminal program settings. 
 
+### GNSS Add-ons
+
+This version of the driver adds GNSS capabilities. It is not using the usbnmea port of the BG96 modem to get the NMEA phrases, but relying on reading the GNSS data by issuing AT commands. 

@@ -33,6 +33,7 @@
 #define __BG96_H__
 
 #include "mbed.h"
+#include "GNSSLoc.h"
 
 #define none        "none"
 #define usbnmea     "usbnmea"
@@ -91,6 +92,25 @@
 #define MBED_CONF_BG96_LIBRARY_BG96_GNSS_AUTOGPS                0
 #endif
 
+#if !defined(MBED_CONF_BG96_LIBRARY_BG96_GNSS_GNSSMODE)
+#define MBED_CONF_BG96_LIBRARY_BG96_GNSS_GNSSMODE                1 //CURRENTLY ONLY ONE SUPPORTED BY BG96
+#endif
+
+#if !defined(MBED_CONF_BG96_LIBRARY_BG96_GNSS_FIXMAXTIME)
+#define MBED_CONF_BG96_LIBRARY_BG96_GNSS_FIXMAXTIME              30
+#endif
+
+#if !defined(MBED_CONF_BG96_LIBRARY_BG96_GNSS_FIXMAXDIST)
+#define MBED_CONF_BG96_LIBRARY_BG96_GNSS_FIXMAXDIST               50
+#endif
+
+#if !defined(MBED_CONF_BG96_LIBRARY_BG96_GNSS_FIXCOUNT)
+#define MBED_CONF_BG96_LIBRARY_BG96_GNSS_FIXCOUNT                 10
+#endif
+
+#if !defined(MBED_CONF_BG96_LIBRARY_BG96_GNSS_FIXRATE)
+#define MBED_CONF_BG96_LIBRARY_BG96_GNSS_FIXRATE                  10
+#endif
 
 /** BG96Interface class.
     Interface to a BG96 module.
@@ -264,6 +284,24 @@ public:
      */
     bool        configureGNSS(void);    
 
+     /** Start GNSS - Return true/false if start ok/failed 
+     */
+    bool        startGNSS(void);   
+
+     /** Stop GNSS - Return true/false if start ok/failed 
+     */
+    bool        stopGNSS(void);  
+
+    /** Return true/false if GNSS ON/OFF 
+     */
+    int         isGNSSOn(void);   
+
+    bool        updateGNSSLoc(void);
+
+    /** function to get the last GNSS location 
+     */
+    GNSSLoc*    getGNSSLoc();
+
 private:
     bool        tx2bg96(char* cmd);
     bool        BG96Ready(void);
@@ -278,6 +316,7 @@ private:
     DigitalOut _bg96_reset;
     DigitalOut _vbat_3v8_en;
     DigitalOut _bg96_pwrkey;
+    GNSSLoc *  _gnss_loc;
     
 };
  
