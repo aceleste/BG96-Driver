@@ -168,7 +168,11 @@ public:
      *  AT command tracing   = 0x80
      */
     void doDebug( int v );
-    
+
+    /** Blocking function to get location from BG96 embedded GNSS module
+     * Returns a pointer to GNSSLoc object that must be deleted once no more needed.
+     */
+    GNSSLoc * getGNSSLocation(void);   
 
 protected:
 
@@ -318,11 +322,6 @@ protected:
      *  @note Callback may be called in an interrupt context.
      */
     virtual void socket_attach(void *handle, void (*callback)(void *), void *data);
-
-    /** Blocking function to get location from BG96 embedded GNSS module
-     * Returns a pointer to GNSSLoc object that must be deleted once no more needed.
-     */
-    GNSSLoc * getGNSSLocation(void);
 
 private:
     
