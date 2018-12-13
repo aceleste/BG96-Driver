@@ -38,6 +38,7 @@
 #include "Callback.h"
 
 #include "BG96.h"
+#include "GNSSLoc.h"
 
 #define APN_DEFAULT          "m2m.com.attz"
 #define BG96_MISC_TIMEOUT    15000
@@ -317,6 +318,11 @@ protected:
      *  @note Callback may be called in an interrupt context.
      */
     virtual void socket_attach(void *handle, void (*callback)(void *), void *data);
+
+    /** Blocking function to get location from BG96 embedded GNSS module
+     * Returns a pointer to GNSSLoc object that must be deleted once no more needed.
+     */
+    GNSSLoc * getGNSSLocation(void);
 
 private:
     

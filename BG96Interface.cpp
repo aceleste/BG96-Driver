@@ -32,6 +32,7 @@
 #include "mbed.h"
 #include "BG96.h"
 #include "BG96Interface.h"
+#include "GNSSLoc.h"
 
 //
 // The driver uses a simple/basic state machine to manage receiving and transmitting
@@ -969,5 +970,12 @@ void BG96Interface::_eq_schedule(void)
         scheduled_events++;
         _bg96_queue.call_in(EQ_FREQ,mbed::Callback<void()>((BG96Interface*)this,&BG96Interface::g_eq_event));
         }
+}
+
+GNSSLoc * BG96Interface::getGNSSLocation()
+{
+    _BG96.startGNSS();
+    _BG96.updateGNSS();
+    return _BG96.getGNNSSLoc();
 }
 
