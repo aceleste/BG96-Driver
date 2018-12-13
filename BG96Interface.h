@@ -175,6 +175,11 @@ public:
      */
     GNSSLoc * getGNSSLocation(void);   
 
+    /** InitializeGNSS module. Current implementation calls startup.
+     * 
+     */
+    void initializeGNSS(void);
+
 protected:
 
     /** Get Host IP by name. 

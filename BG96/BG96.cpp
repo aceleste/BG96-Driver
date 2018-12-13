@@ -660,16 +660,17 @@ bool BG96::updateGNSSLoc(void)
     char cmd[8];
     bool done;
     _bg96_mutex.lock();
-    _parser.set_timeout(BG96_60s_TO);  
-    done = (_parser.send("AT+QGPSLOC=2") && _parser.recv("+%s: %s", cmd, locationstring) && strcmp(cmd, "QGPSLOC") == 0) ;  
+    _parser.set_timeout(BG96_1s_WAIT);  
+    done = (_parser.send("AT+QGPSLOC=2") && _parser.recv("+%s: %s", cmd, locationstring)) ;  
     _parser.set_timeout(BG96_AT_TIMEOUT);
-    if (done) {
+    if (done && strcmp(cmd, "QGPSLOC")==0) {
         GNSSLoc * loc = new GNSSLoc(locationstring);
         if (loc != NULL){ 
             delete(_gnss_loc); //free previous loc
             _gnss_loc = loc;
             done = true; 
         } else {
+            printf("[BG96Driver]: Failed creating GNSSLoc instance.\r\n");
             done = false;
         }
     }

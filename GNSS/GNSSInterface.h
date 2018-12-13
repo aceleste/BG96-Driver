@@ -9,6 +9,8 @@ public:
 
     virtual GNSSLoc *getGNSSLocation(); 
 
+    virtual void initializeGNSS(void);
+
 };
 
 #endif //__GNSS_INTERFACE_H__
