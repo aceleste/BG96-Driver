@@ -629,11 +629,14 @@ bool BG96::configureGNSS()
 bool BG96::startGNSS(void)
 {
     _bg96_mutex.lock();
-    bool done = ( _parser.send("AT+QGPS=%d,%d,%d,%d,%d", MBED_CONF_BG96_LIBRARY_BG96_GNSS_GNSSMODE, 
+    /*
+    %d,%d,%d,%d", MBED_CONF_BG96_LIBRARY_BG96_GNSS_GNSSMODE, 
                                                         MBED_CONF_BG96_LIBRARY_BG96_GNSS_FIXMAXTIME,
                                                         MBED_CONF_BG96_LIBRARY_BG96_GNSS_FIXMAXDIST,
                                                         MBED_CONF_BG96_LIBRARY_BG96_GNSS_FIXCOUNT,
-                                                        MBED_CONF_BG96_LIBRARY_BG96_GNSS_FIXRATE) && _parser.recv("OK") );
+                                                        MBED_CONF_BG96_LIBRARY_BG96_GNSS_FIXRATE
+    */
+    bool done = ( _parser.send("AT+QGPS=1") && _parser.recv("OK") );
     _bg96_mutex.unlock();
     return done;
 }
@@ -664,15 +667,18 @@ bool BG96::updateGNSSLoc(void)
     char cmd[8];
     bool done;
     _bg96_mutex.lock();
-    _parser.set_timeout(BG96_1s_WAIT);  
-    done = (_parser.send("AT+QGPSLOC=2") && _parser.recv("+%s: %s", cmd, locationstring)) ;  
+    _parser.set_timeout(3000);  
+    done = (_parser.send("AT+QGPSLOC=2") && _parser.recv("+QGPSLOC: %s\r\n", locationstring));  
     _parser.set_timeout(BG96_AT_TIMEOUT);
+//    printf("[BG96Driver]: Received cmd -> %s\r\n", cmd);
+    printf("[BG96Driver]: Received location string -> \r\n");
+    printf("%s\r\n", &locationstring[0]);
 //Test only
-    strcpy(locationstring, "141459.0,54.65433,-1.44565,3.1,90.0,2,0.00,0.0,0.0,131218,10");
-    strcpy(cmd, "QGPSLOC"); 
-    done = 1;
+    // strcpy(locationstring, "200315.0,54.70573,-1.56611,1.3,163.0,2,0.00,0.0,0.0,131218,08");
+    // strcpy(cmd, "QGPSLOC"); 
+    // done = 1;   
 //
-    if (done && strcmp(cmd, "QGPSLOC")==0) {
+    if (done) {
         GNSSLoc * loc = new GNSSLoc(locationstring);
         if (loc != NULL){ 
             delete(_gnss_loc); //free previous loc
