@@ -33,6 +33,7 @@
 #include "BG96.h"
 #include "BG96Interface.h"
 #include "GNSSLoc.h"
+#include "GNSSInterface.h"
 
 //
 // The driver uses a simple/basic state machine to manage receiving and transmitting

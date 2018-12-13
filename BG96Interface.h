@@ -39,6 +39,7 @@
 
 #include "BG96.h"
 #include "GNSSLoc.h"
+#include "GNSSInterface.h"
 
 #define APN_DEFAULT          "m2m.com.attz"
 #define BG96_MISC_TIMEOUT    15000
@@ -93,7 +94,7 @@ typedef struct _socket_t {
     } BG96SOCKET;
 
 
-class BG96Interface : public NetworkStack, public NetworkInterface
+class BG96Interface : public NetworkStack, public NetworkInterface, public GNSSInterface
 {
 public:
     BG96Interface();
