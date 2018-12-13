@@ -975,7 +975,8 @@ void BG96Interface::_eq_schedule(void)
 GNSSLoc * BG96Interface::getGNSSLocation()
 {
     _BG96.startGNSS();
-    _BG96.updateGNSS();
-    return _BG96.getGNNSSLoc();
+    _BG96.updateGNSSLoc();
+    _BG96.stopGNSS();
+    return _BG96.getGNSSLoc();
 }
 

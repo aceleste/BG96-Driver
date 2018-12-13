@@ -2,6 +2,7 @@
 #define __GNSSLOC_H__
 
 #include "mbed.h"
+
 class COG
 {
 public:
@@ -33,6 +34,7 @@ public:
     COG* getGNSSCog() { return &cog; };
     float getGNSSSPKM() { return spkm; };
     float getGNSSSPKN() { return spkn; };
+    int getGNSSNsat() { return nsat; };
 
 private:
     time_t gnssutctime;
