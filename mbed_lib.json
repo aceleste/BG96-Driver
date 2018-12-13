@@ -76,21 +76,11 @@
              "bg96-rx": "D0"
          },
          "NUCLEO_L476RG": {
-            "bg96-tx": {
-                "value": "PA_9"
-            },
-            "bg96-rx": {
-                "value": "PA_10"
-            },
-            "bg96-reset": {
-                "value": "PA_8"
-            },
-            "bg96-wake": {
-                "value": "PA_7"
-            },
-            "bg96-pwrkey": {
-                "value": "PB_6"
-            }
+            "bg96-tx": "PA_9",
+            "bg96-rx": "PA_10",
+            "bg96-reset": "PA_8",
+            "bg96-wake": "PA_7",
+            "bg96-pwrkey": "PB_6"
          }
     }
 }
