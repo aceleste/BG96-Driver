@@ -34,6 +34,7 @@ GNSSLoc::GNSSLoc(const char* locationstring)
     int cogdeg, cogmin;
     int dummy;
     tm time;
+    int shortyear;
     sscanf(locationstring, "%2d%2d%2d.%d,%f,%f,%f,%f,%d,%d.%d,%f,%f,%2d%2d%2d,%d",
         &(time.tm_hour), &(time.tm_min), &(time.tm_sec), &dummy, 
         &latitude, 
@@ -44,8 +45,10 @@ GNSSLoc::GNSSLoc(const char* locationstring)
         &cogdeg, &cogmin, 
         &spkm, 
         &spkn, 
-        &(time.tm_mday), &(time.tm_mon), &(time.tm_year), 
+        &(time.tm_mday), &(time.tm_mon), &shortyear, 
         &nsat);
+    time.tm_mon = time.tm_mon - 1;
+    time.tm_year = shortyear + 100;
     cog.setDegrees(cogdeg);
     cog.setMinutes(cogmin);
     _rtc_maketime(&time, &gnssutctime, RTC_4_YEAR_LEAP_YEAR_SUPPORT);

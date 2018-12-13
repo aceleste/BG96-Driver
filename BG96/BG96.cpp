@@ -96,7 +96,11 @@ BG96::BG96(bool debug) :
 }
 
 BG96::~BG96(void)
-{ delete(_gnss_loc); }
+{ 
+    _bg96_pwrkey = 0;
+    _vbat_3v8_en = 0;
+    delete(_gnss_loc); 
+}
 
 /** ----------------------------------------------------------
 * @brief  get BG96 SW version
@@ -663,6 +667,11 @@ bool BG96::updateGNSSLoc(void)
     _parser.set_timeout(BG96_1s_WAIT);  
     done = (_parser.send("AT+QGPSLOC=2") && _parser.recv("+%s: %s", cmd, locationstring)) ;  
     _parser.set_timeout(BG96_AT_TIMEOUT);
+//Test only
+    strcpy(locationstring, "141459.0,54.65433,-1.44565,3.1,90.0,2,0.00,0.0,0.0,131218,10");
+    strcpy(cmd, "QGPSLOC"); 
+    done = 1;
+//
     if (done && strcmp(cmd, "QGPSLOC")==0) {
         GNSSLoc * loc = new GNSSLoc(locationstring);
         if (loc != NULL){ 
