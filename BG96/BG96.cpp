@@ -581,7 +581,7 @@ int32_t BG96::recv(int id, void *data, uint32_t cnt)
 bool BG96::configureGNSS()
 {
     _bg96_mutex.lock();
-    bool done = ( _parser.send("AT+QGPSCFG=%s,%s","\"outport\"", MBED_CONF_BG96_LIBRARY_BG96_GNSS_OUTPORT) && _parser.recv("OK") );
+    bool done = ( _parser.send("AT+QGPSCFG=%s,%s","\"outport\"", "\"usbnmea\"") && _parser.recv("OK") );
     if (done) {
         done = ( _parser.send("AT+QGPSCFG=%s,%d","\"nmeasrc\"", MBED_CONF_BG96_LIBRARY_BG96_GNSS_NMEASRC) && _parser.recv("OK") );
     } else {
