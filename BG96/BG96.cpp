@@ -581,44 +581,44 @@ int32_t BG96::recv(int id, void *data, uint32_t cnt)
 bool BG96::configureGNSS()
 {
     _bg96_mutex.lock();
-    bool done = ( _parser.send("AT+QGPSCFG=%s,%s","outport", MBED_CONF_BG96_LIBRARY_BG96_GNSS_OUTPORT) && _parser.recv("OK") );
+    bool done = ( _parser.send("AT+QGPSCFG=%s,%s","\"outport\"", MBED_CONF_BG96_LIBRARY_BG96_GNSS_OUTPORT) && _parser.recv("OK") );
     if (done) {
-        done = ( _parser.send("AT+QGPSCFG=%s,%d","nmeasrc", MBED_CONF_BG96_LIBRARY_BG96_GNSS_NMEASRC) && _parser.recv("OK") );
+        done = ( _parser.send("AT+QGPSCFG=%s,%d","\"nmeasrc\"", MBED_CONF_BG96_LIBRARY_BG96_GNSS_NMEASRC) && _parser.recv("OK") );
     } else {
         return done;
     }
     if (done) {
-        done = ( _parser.send("AT+QGPSCFG=%s,%d","gpsnmeatype", MBED_CONF_BG96_LIBRARY_BG96_GNSS_GPSNMNEATYPE) && _parser.recv("OK") );
+        done = ( _parser.send("AT+QGPSCFG=%s,%d","\"gpsnmeatype\"", MBED_CONF_BG96_LIBRARY_BG96_GNSS_GPSNMNEATYPE) && _parser.recv("OK") );
     } else {
         return done;
     }
     if (done) {
-        done = ( _parser.send("AT+QGPSCFG=%s,%d","glonassnmeatype", MBED_CONF_BG96_LIBRARY_BG96_GNSS_GLONASSNMNEATYPE) && _parser.recv("OK") );
+        done = ( _parser.send("AT+QGPSCFG=%s,%d","\"glonassnmeatype\"", MBED_CONF_BG96_LIBRARY_BG96_GNSS_GLONASSNMNEATYPE) && _parser.recv("OK") );
     } else {
         return done;
     }
     if (done) {
-        done = ( _parser.send("AT+QGPSCFG=%s,%d","galileonmeatype", MBED_CONF_BG96_LIBRARY_BG96_GNSS_GALILEONMNEATYPE) && _parser.recv("OK") );
+        done = ( _parser.send("AT+QGPSCFG=%s,%d","\"galileonmeatype\"", MBED_CONF_BG96_LIBRARY_BG96_GNSS_GALILEONMNEATYPE) && _parser.recv("OK") );
     } else {
         return done;
     }
     if (done) {
-        done = ( _parser.send("AT+QGPSCFG=%s,%d","beidounmeatype", MBED_CONF_BG96_LIBRARY_BG96_GNSS_BEIDOUNMNEATYPE) && _parser.recv("OK") );
+        done = ( _parser.send("AT+QGPSCFG=%s,%d","\"beidounmeatype\"", MBED_CONF_BG96_LIBRARY_BG96_GNSS_BEIDOUNMNEATYPE) && _parser.recv("OK") );
     } else {
         return done;
     }
     if (done) {
-        done = ( _parser.send("AT+QGPSCFG=%s,%d", "gsvextnmeatype", MBED_CONF_BG96_LIBRARY_BG96_GNSS_GSVEXTNMEATYPE) && _parser.recv("OK") );
+        done = ( _parser.send("AT+QGPSCFG=%s,%d", "\"gsvextnmeatype\"", MBED_CONF_BG96_LIBRARY_BG96_GNSS_GSVEXTNMEATYPE) && _parser.recv("OK") );
     } else {
         return done;
     }
     if (done) {
-        done = ( _parser.send("AT+QGPSCFG=%s,%d", "gnssconfig", MBED_CONF_BG96_LIBRARY_BG96_GNSS_GNSSCONFIG) && _parser.recv("OK") );
+        done = ( _parser.send("AT+QGPSCFG=%s,%d", "\"gnssconfig\"", MBED_CONF_BG96_LIBRARY_BG96_GNSS_GNSSCONFIG) && _parser.recv("OK") );
     } else {
         return done;
     }
     if (done) {
-        done = ( _parser.send("AT+QGPSCFG=%s,%d", "autogps", MBED_CONF_BG96_LIBRARY_BG96_GNSS_AUTOGPS) && _parser.recv("OK") );
+        done = ( _parser.send("AT+QGPSCFG=%s,%d", "\"autogps\"", MBED_CONF_BG96_LIBRARY_BG96_GNSS_AUTOGPS) && _parser.recv("OK") );
     } else {
         return done;
     }
