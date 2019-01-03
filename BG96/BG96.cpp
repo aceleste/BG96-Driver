@@ -44,6 +44,7 @@
 #define BG96_AT_TIMEOUT         1000   //standard AT command timeout
 #define BG96_WRK_CONTEXT        1      //we will only use context 1 in driver
 #define BG96_CLOSE_TO           1      //wait x seconds for a socket close
+#define BG96_MISC_TIMEOUT       1000
 
 //
 // if DEBUG is enabled, these macros are used to dump data arrays
@@ -240,43 +241,132 @@ bool BG96::startup(void)
 */
 nsapi_error_t BG96::connect(const char *apn, const char *username, const char *password)
 {
-    char cmd[100],_apn[50];
-    bool done = false;
-    Timer t;
-    int   cntx;
-    
+    char pdp_string[100];
+    int i = 0;
+	char* search_pt;
+    Timer timer_s;
+	uint32_t time;
+	int pdp_retry = 0;
+	
     _bg96_mutex.lock();
-    t.start();
-    do {
-        _parser.send("AT+QICSGP=%d",_contextID);
-        done = _parser.recv("+QICSGP: %d, \"%50[^\"]\"",&cntx, _apn);
-        wait_ms(2);
-        }
-    while( !done && t.read_ms() < BG96_60s_TO );
-
-    if( !done ) {
-        _bg96_mutex.unlock();
-        return NSAPI_ERROR_DEVICE_ERROR;
-        }
-
-    _parser.flush();    
-    if( strcmp(_apn,apn) ) {
-        sprintf(cmd,"AT+QICSGP=%d,1,\"%s\",\"%s\",\"%s\",0", _contextID, &apn[0], &username[0], &password[0]);
-        if( !tx2bg96(cmd) )  {
-            _bg96_mutex.unlock();
+    memset(pdp_string, 0, sizeof(pdp_string));
+	printf("Checking APN ...\r\n");
+	_parser.send("AT+QICSGP=1");
+	while(1){
+			//read and store answer
+		_parser.read(&pdp_string[i], 1);
+		i++;
+			//if OK rx, end string; if not, program stops
+        search_pt = strstr(pdp_string, "OK\r\n");
+		if (search_pt != 0)
+		{
+            printf("search_pt != 0.\r\n");
             return NSAPI_ERROR_DEVICE_ERROR;
-            }
+            
+		} else {
+            printf("search_pt = 0 \r\n");
+            break;
         }
-
-    sprintf(cmd,"AT+QIACT=%d", _contextID);
-    t.reset();
-    done=false;
-    while( !done && t.read_ms() < BG96_150s_TO ) 
+		//TODO: add timeout if no aswer from module!!
+    }
+	printf("pdp_string: %s\r\n", pdp_string);
+		//compare APN name, if match, no store is needed
+	search_pt = strstr(pdp_string, apn);
+	if (search_pt == 0)
+	{
+		//few delay to purge serial ...
+		wait(1);
+		printf("Storing APN %s ...\r\n", apn);
+		//program APN and connection parameter only for PDP context 1, authentication NONE
+		//TODO: add program for other context
+		if (!(_parser.send("AT+QICSGP=1,1,\"%s\",\"%s\",\"%s\",0", &apn[0], &username[0], &password[0])
+        && _parser.recv("OK"))) 
+		{
+			return NSAPI_ERROR_DEVICE_ERROR;
+		}
+	}
+    wait(1);
+	printf("End APN check\r\n\n");
+		
+	//activate PDP context 1 ...
+    char cmd[100];
+    printf("PDP activating ...\r\n");
+    sprintf(cmd,"AT+QIACT=%d", 1);
+    timer_s.reset();
+    bool done=false;
+    while( !done && timer_s.read_ms() < BG96_150s_TO ) 
         done = tx2bg96(cmd);
-
+    if (done) printf("PDP started\r\n\n");
     _bg96_mutex.unlock();
+	// int a = 1;
+	// while(a==1)
+	// {
+	// 	_parser.send("AT+QIACT=1");
+	// 	timer_s.reset();
+	// 	timer_s.start();
+	// 	while (1)
+	// 	{
+	// 		if (_parser.recv("OK")){
+	// 			a=0;
+	// 			break;
+	// 		}
+						
+	// 		time = timer_s.read_ms();
+	// 		uint32_t end_time = (BG96_MISC_TIMEOUT*(5+(pdp_retry*3)));
+	// 		if (time > end_time) 
+	// 		{
+	// 			pdp_retry++;
+	// 			if (pdp_retry > 3)
+	// 			{
+	// 				return NSAPI_ERROR_DEVICE_ERROR;
+	// 			}
+	// 			break;
+	// 		}
+	// 	}		
+	// }
+	
+    return done ? NSAPI_ERROR_OK:NSAPI_ERROR_DEVICE_ERROR;
+
+    // char cmd[100],_apn[50];
+    // bool done = false;
+    // Timer t;
+    // int   cntx;
     
-    return done? NSAPI_ERROR_OK : NSAPI_ERROR_DEVICE_ERROR;
+    // _bg96_mutex.lock();
+    // t.start();
+    // do {
+    //     _parser.send("AT+QICSGP=%d",_contextID);
+    //     done = _parser.recv("+QICSGP: %d,\"%50[^\"]\"",&cntx, _apn);
+    //     printf("[BG96]: APN to find is %s.\r\n", apn);
+    //     printf("[BG96]: Found %s APN in PDP context.\r\n", _apn);
+    //     wait_ms(2);
+    //     }
+    // while( !done && t.read_ms() < BG96_60s_TO );
+
+    // if( !done ) {
+    //     _bg96_mutex.unlock();
+    //     return NSAPI_ERROR_DEVICE_ERROR;
+    //     }
+
+    // _parser.flush();    
+    // if( strcmp(_apn,apn) == 0 ) {
+    //     printf("[BG96]: APN of PDP context is correct.\r\n");
+    //     sprintf(cmd,"AT+QICSGP=%d,1,\"%s\",\"%s\",\"%s\",0", _contextID, &apn[0], &username[0], &password[0]);
+    //     if( !tx2bg96(cmd) )  {
+    //         _bg96_mutex.unlock();
+    //         return NSAPI_ERROR_DEVICE_ERROR;
+    //         }
+    //     }
+
+    // sprintf(cmd,"AT+QIACT=%d", _contextID);
+    // t.reset();
+    // done=false;
+    // while( !done && t.read_ms() < BG96_150s_TO ) 
+    //     done = tx2bg96(cmd);
+
+    // _bg96_mutex.unlock();
+    
+    // return done? NSAPI_ERROR_OK : NSAPI_ERROR_DEVICE_ERROR;
 }
 
 /** ----------------------------------------------------------
@@ -306,6 +396,7 @@ bool BG96::resolveUrl(const char *name, char* ipstr)
     int  err, ipcount, dnsttl;
     
     _bg96_mutex.lock();
+    _parser.flush();
     _parser.set_timeout(BG96_60s_TO);
     ok =  (    _parser.send("AT+QIDNSGIP=%d,\"%s\"",_contextID,name)
             && _parser.recv("OK") 
@@ -315,7 +406,7 @@ bool BG96::resolveUrl(const char *name, char* ipstr)
           );
 
     if( ok ) {
-        _parser.recv("+QIURC: \"dnsgip\",\"%[^\"]\"",ipstr);       //use the first DNS value
+        ok = _parser.recv("+QIURC: \"dnsgip\",\"%[^\"]\"",ipstr);       //use the first DNS value
         for( int i=0; i<ipcount-1; i++ )
             _parser.recv("+QIURC: \"dnsgip\",\"%[^\"]\"", buf2);   //and discrard the rest  if >1
         }
@@ -375,9 +466,10 @@ const char *BG96::getIPAddress(char *ipstr)
 
     _bg96_mutex.lock();
     _parser.set_timeout(BG96_150s_TO);
-    done = _parser.send("AT+QIACT?") && _parser.recv("+QIACT: 1, %d,%d,\"%16[^\"]\"",&cs,&ct,ipstr);
+    done = _parser.send("AT+QIACT?") && _parser.recv("+QIACT: 1, %d,%d,\"%16[^\"]\"",&cs,&ct,ipstr) && _parser.recv("OK");
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
+    printf("ipstr: %s\r\n", ipstr);
 
     return done? ipstr:NULL;
 }

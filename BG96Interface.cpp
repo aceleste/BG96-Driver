@@ -34,6 +34,7 @@
 #include "BG96Interface.h"
 #include "GNSSLoc.h"
 #include "GNSSInterface.h"
+#include "NTPClient.h"
 
 //
 // The driver uses a simple/basic state machine to manage receiving and transmitting
@@ -181,11 +182,20 @@ BG96Interface::~BG96Interface()
 nsapi_error_t BG96Interface::connect(void)
 {
     nsapi_error_t ret = NSAPI_ERROR_OK;
+    char ipaddress[16];
     debugOutput(DBGMSG_DRV,"BG96Interface::connect(void) ENTER.");
     if( g_isInitialized == NSAPI_ERROR_NO_CONNECTION )
+#if defined(MBED_CONF_APP_BG96_APN_USER) && defined(MBED_CONF_APP_BG96_APN_PWD)
+        ret = connect(DEFAULT_APN, NULL, NULL); //MBED_CONF_APP_BG96_APN_USER, MBED_CONF_APP_BG96_APN_PWD);
+#else
         ret = connect(DEFAULT_APN, NULL, NULL);
-
-    return (ret == NSAPI_ERROR_NO_CONNECTION);
+#endif
+    wait(3);
+//    printf("[BG96Interface]: MAC address = %s\r\n", get_mac_address());
+//    printf("[BG96Interface]: IP address = %s\r\n", get_ip_address());
+    // while(!_BG96.resolveUrl("www.google.com", &ipaddress[0])) {}
+    // printf("[BG96Interface]: The IP address of IoT Hub is: %s\r\n", ipaddress);
+    // return ret;
 }
 
 nsapi_error_t BG96Interface::connect(const char *apn, const char *username, const char *password)
@@ -619,13 +629,17 @@ nsapi_error_t BG96Interface::gethostbyname(const char* name, SocketAddress *addr
     char          ipstr[25];
     bool          ok;
     nsapi_error_t ret=NSAPI_ERROR_OK;
+    int iter = 0;
 
     debugOutput(DBGMSG_DRV,"ENTER gethostbyname(); IP=%s; PORT=%d; URL=%s;", 
                 address->get_ip_address(), address->get_port(), name);
 
-    dbgIO_lock;
-    ok=_BG96.resolveUrl(name,ipstr);
-    dbgIO_unlock;
+    ok = false;
+    while (!ok && iter < 3) {
+        dbgIO_lock;
+        ok=_BG96.resolveUrl(name,ipstr);
+        dbgIO_unlock;
+    }
 
     if( !ok ) {
         ret = NSAPI_ERROR_DEVICE_ERROR;
