@@ -85,3 +85,58 @@ convert-newlines helps terminal output format by removing the requirment to modi
 ### GNSS Add-ons
 
 This version of the driver adds GNSS capabilities. It is not using the usbnmea port of the BG96 modem to get the NMEA phrases, but relying on reading the GNSS data by issuing AT commands. 
+
+### TLS Socket Add-on
+
+An API is added to the BG96Interface in order to instantiate and obtain a reference to a BG96TLSSocket. A BG96TLSSocket allows the application to open a TLS connection using the BG96 TLS capabilities of the BG96 modem. This unloads the processor from running the TLS algorithms and allow lower memory devices to be used. 
+
+__API__
+Get a BG96TLSSocket instance:
+
+```C
+BG96Interface bg96;
+BG96TLSSocket * tls_socket = bg96.getBG96TLSSocket();
+```
+
+The BG96Socket provides the following interface:
+
+```C
+const char cacert = "...."; // stringified CA certificate
+const char hostname = "..."; // hostname or CDN of server
+int port = 8883;
+char buf[512];
+strcpy(buf, message_to_send);
+tls_socket.set_ca_cert(&cacert[0]); 
+tls_socket.set_option(BG96TLS_SSLVERSION, SSLVERSION_TLS2); //See list in header
+tls_socket.open(hostname, port);
+tls_socket.send(buf, len(buf));
+char * recvbuf = &buf[0];
+while(tls_socket.recv(recvbuf, CHUNK_SIZE)) {
+    recvbuf += CHUNK_SIZE;
+}
+printf("received %s\r\r", &buf[0]);
+tls_socket.close();
+```
+
+Delete the BG96TLSSocket:
+
+```C
+bg96.discardBG96TLSSocket(tls_socket);
+```
+
+or simply
+
+```C
+delete(tls_socket);
+```
+
+Interstingly, the BG96TLSSocket implements the TLSSocket public interface, meaning that it can be used by software relying on TLSSocket to function. 
+
+```C
+TLSSocket * a_tls_socket = (TLSSocket*) tls_socket;
+```
+Do whatever required with a_tls_socket.
+
+
+
+

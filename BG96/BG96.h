@@ -302,6 +302,8 @@ public:
      */
     GNSSLoc*    getGNSSLoc();
 
+    int         send_file(const char* content, const char* filename);
+
 private:
     bool        tx2bg96(char* cmd);
     bool        BG96Ready(void);

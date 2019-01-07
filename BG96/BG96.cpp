@@ -756,7 +756,7 @@ int BG96::isGNSSOn(void)
 bool BG96::updateGNSSLoc(void)
 {
     char locationstring[120];
-    char cmd[8];
+//    char cmd[8];
     bool done;
     _bg96_mutex.lock();
     _parser.set_timeout(3000);  
@@ -791,5 +791,35 @@ GNSSLoc * BG96::getGNSSLoc()
     GNSSLoc * result = new GNSSLoc(*_gnss_loc); 
     _bg96_mutex.unlock();
     return result;
+}
+
+int send_file(const char* content, const char* filename)
+{
+    bool done = false;
+    int rc = 0;
+    size_t upload_size;
+    int checksum;
+    size_t filesize = strlen(content) + 1;
+    char cmd[128];
+    sscanf(cmd, "AT+QFUPL=\"%s\",%d", filename, filesize);
+     _bg96_mutex.lock();
+    _parser.set_timeout(BG96_1s_WAIT);
+    done = _parser.send(cmd) && _parser.recv("CONNECT");
+    if (!done) {
+        rc = 1;
+    } else { //We are now in transparent mode, send data to stream
+        for (i = 0 ; i < filesize; i++) {
+            _parser.putc(*content++);
+        }
+    }
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    done = recv("+QFUPL: %d, %d", upload_size, checksum) && recv("0K");
+    if (!done) {
+        rc = 1;
+    } else { // should check for upload_size == filesize and checksum ok.
+        rc = 0;
+    }
+    _bg96_mutex.unlock();
+    return rc;
 }
 
