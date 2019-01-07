@@ -796,30 +796,31 @@ GNSSLoc * BG96::getGNSSLoc()
 int send_file(const char* content, const char* filename)
 {
     bool done = false;
-    int rc = 0;
+    int good = 0;
     size_t upload_size;
     int checksum;
     size_t filesize = strlen(content) + 1;
     char cmd[128];
-    sscanf(cmd, "AT+QFUPL=\"%s\",%d", filename, filesize);
-     _bg96_mutex.lock();
+    sprintf(cmd, "AT+QFUPL=\"%s\",%d", filename, filesize);
+    _bg96_mutex.lock();
     _parser.set_timeout(BG96_1s_WAIT);
     done = _parser.send(cmd) && _parser.recv("CONNECT");
     if (!done) {
-        rc = 1;
-    } else { //We are now in transparent mode, send data to stream
+        _bg96_mutex.unlock();
+        return 0;
+    } else { //We are now in transparent mode, send data to stream  
         for (i = 0 ; i < filesize; i++) {
             _parser.putc(*content++);
         }
     }
     _parser.set_timeout(BG96_AT_TIMEOUT);
-    done = recv("+QFUPL: %d, %d", upload_size, checksum) && recv("0K");
+    done = _parser.recv("+QFUPL: %d, %d", upload_size, checksum) && _parser.recv("0K");
     if (!done) {
-        rc = 1;
+        good = 0;
     } else { // should check for upload_size == filesize and checksum ok.
-        rc = 0;
+        good = 1;
     }
     _bg96_mutex.unlock();
-    return rc;
+    return good;
 }
 
