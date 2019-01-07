@@ -12,7 +12,7 @@
 class BG96TLSSocket 
 {
 public:
-    BG96TLSSocket(BG96* bg96driver);
+    BG96TLSSocket(BG96 * bg96driver);
     ~BG96TLSSocket() {};
 
     void set_timeout(int timeout);
@@ -34,6 +34,8 @@ private:
 
     BG96* bg96;
     int sslctx_id;
+    int client_id;
+    int pdp_ctx;
 };
 
 #endif //__BG96TLSSOCKET_H__

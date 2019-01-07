@@ -306,6 +306,8 @@ public:
 
     int         configure_cacert_path(const char* path, int sslctx_id);
 
+    int         sslopen(const char* hostname, int port, int pdp_ctx, int client_id, int sslctx_id);
+
 private:
     bool        tx2bg96(char* cmd);
     bool        BG96Ready(void);

@@ -392,12 +392,13 @@ bool BG96::disconnect(void)
 bool BG96::resolveUrl(const char *name, char* ipstr)
 {
     char buf2[50];
-    bool ok;
-    int  err, ipcount, dnsttl;
+    bool ok=false;
+    int  err=0, ipcount=0, dnsttl=0;
     
+    memset(buf2,0,50);
+
     _bg96_mutex.lock();
-    _parser.flush();
-    _parser.set_timeout(BG96_60s_TO);
+    _parser.set_timeout(4000);
     ok =  (    _parser.send("AT+QIDNSGIP=%d,\"%s\"",_contextID,name)
             && _parser.recv("OK") 
             && _parser.recv("+QIURC: \"dnsgip\",%d,%d,%d",&err, &ipcount, &dnsttl) 
@@ -443,7 +444,7 @@ bool BG96::writeable()
 */
 int BG96::getRSSI(void)
 {
-    int   cs, er;
+    int   cs=0, er=0;
     bool  done=false;
 
     _bg96_mutex.lock();
@@ -461,16 +462,18 @@ int BG96::getRSSI(void)
 */
 const char *BG96::getIPAddress(char *ipstr)
 {
-    int   cs, ct;
+    int   dummy=0, cs=0, ct=0;
     bool  done=false;
-
+    //char reply[80];
     _bg96_mutex.lock();
-    _parser.set_timeout(BG96_150s_TO);
-    done = _parser.send("AT+QIACT?") && _parser.recv("+QIACT: 1, %d,%d,\"%16[^\"]\"",&cs,&ct,ipstr) && _parser.recv("OK");
+    _parser.set_timeout(BG96_60s_TO);
+    //_parser.flush();
+    done = _parser.send("AT+QIACT?") && _parser.recv("+QIACT:%d,%d,%d,\"%16[^\"]\"", &dummy, &cs, &ct, ipstr);
+    //_parser.flush();
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
+    //printf("Received %s\r\n", reply);
     printf("ipstr: %s\r\n", ipstr);
-
     return done? ipstr:NULL;
 }
 
@@ -743,8 +746,8 @@ bool BG96::stopGNSS(void)
 
 int BG96::isGNSSOn(void)
 {
-    int state;
-    bool done;
+    int state=0;
+    bool done=false;
     _bg96_mutex.lock();
     _parser.set_timeout(BG96_1s_WAIT);
     done = (_parser.send("AT+QGPS?") && _parser.recv("+QGPS: %d", &state));
@@ -809,8 +812,8 @@ int BG96::send_file(const char* content, const char* filename, bool overrideok)
     bool done = false;
     bool upload = false;
     int good = 0;
-    unsigned int upload_size;
-    unsigned int checksum;
+    unsigned int upload_size=0;
+    unsigned int checksum=0;
     size_t filesize = strlen(content) + 1;
     char cmd[128];
     sprintf(cmd, "AT+QFLST=\"%s\"", filename);
@@ -865,6 +868,51 @@ int BG96::send_file(const char* content, const char* filename, bool overrideok)
 
 int BG96::configure_cacert_path(const char* path, int sslctx_id)
 {
-    return 0;
+    char cmd[128];
+    bool done=false;
+    int good = 0;
+    sprintf(cmd, "AT+QSSLCFG=\"cacert\",%d,%s",sslctx_id, path);
+    _bg96_mutex.lock();
+    done = _parser.send(cmd) && _parser.recv("OK");
+    if (done) {
+        printf("BG96: Successfully configured CA certificate path\r\n");
+        good = 1;
+    } else {
+        good = 0;
+    }
+    _bg96_mutex.unlock();   
+    return good;
 }
 
+int BG96::sslopen(const char* hostname, int port, int pdp_ctx, int client_id, int sslctx_id)
+{
+    char cmd[128];
+    bool done=false;
+    int good=0;
+    int cid=0;
+    int err=0;
+
+    if (client_id <0 || client_id > 11) {
+        printf("BG96: Wrong Client ID\r\n");
+        return 0;
+    }
+
+    if (pdp_ctx <1 || pdp_ctx > 11) {
+        printf("BG96: Wrong PDP Context ID.\r\n");
+        return 0;
+    }
+
+    sprintf(cmd, "AT+QSSLOPEN=%d,%d,%d,\"%s\",%d", pdp_ctx, client_id, sslctx_id, hostname, port);
+    _bg96_mutex.lock();
+    _parser.set_timeout(BG96_150s_TO);
+    done =  _parser.send(cmd) 
+            && _parser.recv("+QSSLOPEN: %d,%d", &cid, &err) 
+            && err == 0;
+    if (done) {
+    } else {
+        printf("BG96: Error opening TLS socket to host %s\r\n", hostname);
+    }
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return done;
+}

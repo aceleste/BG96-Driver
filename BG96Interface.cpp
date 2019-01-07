@@ -190,12 +190,11 @@ nsapi_error_t BG96Interface::connect(void)
 #else
         ret = connect(DEFAULT_APN, NULL, NULL);
 #endif
-    wait(3);
-//    printf("[BG96Interface]: MAC address = %s\r\n", get_mac_address());
-//    printf("[BG96Interface]: IP address = %s\r\n", get_ip_address());
-    // while(!_BG96.resolveUrl("www.google.com", &ipaddress[0])) {}
-    // printf("[BG96Interface]: The IP address of IoT Hub is: %s\r\n", ipaddress);
-    // return ret;
+    //printf("[BG96Interface]: MAC address = %s\r\n", get_mac_address());
+    //printf("[BG96Interface]: IP address = %s\r\n", get_ip_address());
+    while(!_BG96.resolveUrl("www.google.com", &ipaddress[0])) {}
+    //printf("[BG96Interface]: The IP address www.google.com is: %s\r\n", ipaddress);
+    return ret;
 }
 
 nsapi_error_t BG96Interface::connect(const char *apn, const char *username, const char *password)
