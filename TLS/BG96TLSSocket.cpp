@@ -16,8 +16,8 @@ nsapi_error_t BG96TLSSocket::set_root_ca_cert(const char* cacert)
         return rc;
     }
 
-    if ( bg96->send_file(cacert, "cacert.pem") ) {
-        ca_filename = "cacert.pem";
+    if ( bg96->send_file(cacert, "test.pem", true) ) {
+        strcpy(ca_filename, "test.pem");
     } else {
         printf("BG96TLSSocket: Error transferring CA certificate file to modem.\r\n");
         rc = NSAPI_ERROR_DEVICE_ERROR;
@@ -33,10 +33,10 @@ nsapi_error_t BG96TLSSocket::set_root_ca_cert(const char* cacert)
     return rc;
 }
 
-int configure_cacert_path(const char* path)
+int BG96TLSSocket::configure_cacert_path(const char* path)
 {
     int rc = 0;
-    if (bg96->configure_cacert_path(sslctx_id, path)) {
+    if (bg96->configure_cacert_path(path, sslctx_id)) {
         rc = 1;
     } else {
         rc = 0;

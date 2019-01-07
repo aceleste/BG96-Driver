@@ -40,6 +40,7 @@
 #include "BG96.h"
 #include "GNSSLoc.h"
 #include "GNSSInterface.h"
+#include "BG96TLSSocket.h"
 
 #define APN_DEFAULT          "m2m.com.attz"
 #define BG96_MISC_TIMEOUT    15000
@@ -179,6 +180,8 @@ public:
      * 
      */
     void initializeGNSS(void);
+
+    BG96TLSSocket * getBG96TLSSocket();
 
 protected:
 

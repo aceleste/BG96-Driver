@@ -302,7 +302,9 @@ public:
      */
     GNSSLoc*    getGNSSLoc();
 
-    int         send_file(const char* content, const char* filename);
+    int         send_file(const char* content, const char* filename, bool overrideok);
+
+    int         configure_cacert_path(const char* path, int sslctx_id);
 
 private:
     bool        tx2bg96(char* cmd);

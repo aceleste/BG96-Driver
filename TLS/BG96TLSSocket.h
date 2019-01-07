@@ -13,7 +13,7 @@ class BG96TLSSocket
 {
 public:
     BG96TLSSocket(BG96* bg96driver);
-    ~BG96TLSSocket();
+    ~BG96TLSSocket() {};
 
     void set_timeout(int timeout);
     nsapi_error_t recv(void * buffer, nsapi_size_t size);

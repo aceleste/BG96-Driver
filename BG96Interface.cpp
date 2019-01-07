@@ -1007,3 +1007,9 @@ GNSSLoc * BG96Interface::getGNSSLocation()
     return _BG96.getGNSSLoc();
 }
 
+BG96TLSSocket * BG96Interface::getBG96TLSSocket()
+{
+    BG96* bg96 = &_BG96;
+    BG96TLSSocket * socket = new BG96TLSSocket(bg96);
+}
+

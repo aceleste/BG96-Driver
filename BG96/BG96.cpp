@@ -245,8 +245,8 @@ nsapi_error_t BG96::connect(const char *apn, const char *username, const char *p
     int i = 0;
 	char* search_pt;
     Timer timer_s;
-	uint32_t time;
-	int pdp_retry = 0;
+//	uint32_t time;
+//	int pdp_retry = 0;
 	
     _bg96_mutex.lock();
     memset(pdp_string, 0, sizeof(pdp_string));
@@ -793,34 +793,78 @@ GNSSLoc * BG96::getGNSSLoc()
     return result;
 }
 
-int send_file(const char* content, const char* filename)
+int BG96::send_file(const char* content, const char* filename, bool overrideok)
 {
+    //test if file exist
+    //if file exist
+    //   if overrideok is true
+    //      delete existing file
+    //      upload file
+    //   else
+    //      return 1 
+    //   fi
+    //else 
+    //   upload file
+    //fi
     bool done = false;
+    bool upload = false;
     int good = 0;
-    size_t upload_size;
-    int checksum;
+    unsigned int upload_size;
+    unsigned int checksum;
     size_t filesize = strlen(content) + 1;
     char cmd[128];
-    sprintf(cmd, "AT+QFUPL=\"%s\",%d", filename, filesize);
+    sprintf(cmd, "AT+QFLST=\"%s\"", filename);
     _bg96_mutex.lock();
     _parser.set_timeout(BG96_1s_WAIT);
-    done = _parser.send(cmd) && _parser.recv("CONNECT");
-    if (!done) {
-        _bg96_mutex.unlock();
-        return 0;
-    } else { //We are now in transparent mode, send data to stream  
-        for (i = 0 ; i < filesize; i++) {
-            _parser.putc(*content++);
+    done = _parser.send(cmd) && _parser.recv("OK");
+    if (done) { // File exists
+        if (overrideok) {
+            sprintf(cmd, "AT+QFDEL=\"%s\"", filename);
+            done = _parser.send(cmd) && _parser.recv("OK");
+            if (done) {
+                upload = true;
+            } else {
+                printf("BG96: Error trying to delete file %s\r\n", filename);
+                 _bg96_mutex.unlock();
+                return 0;
+            }
+        } else {
+            _bg96_mutex.unlock();
+            return 1; // we suppose the file that is here is ok
+        }
+    }
+    _bg96_mutex.unlock();
+    if (upload) {
+        sprintf(cmd, "AT+QFUPL=\"%s\",%d", filename, filesize);
+        _bg96_mutex.lock();
+        _parser.set_timeout(BG96_1s_WAIT);
+        done = _parser.send(cmd) && _parser.recv("CONNECT");
+        if (!done) {
+            _bg96_mutex.unlock();
+            return 0;
+        } else { //We are now in transparent mode, send data to stream 
+            uint16_t i; 
+            for (i = 0 ; i < filesize; i++) {
+                _parser.putc(*content++);
+            }
+        }
+        _parser.set_timeout(BG96_1s_WAIT);
+        done = _parser.recv("+QFUPL: %u, %X\r\n", &upload_size, &checksum);
+        if (!done) {
+            printf("BG96: Error uploading file %s\r\n", filename);
+            good = 0;
+        } else { // should check for upload_size == filesize and checksum ok.
+            printf("BG96: Successfully uploaded file %s\r\n", filename);
+            good = 1;
         }
     }
     _parser.set_timeout(BG96_AT_TIMEOUT);
-    done = _parser.recv("+QFUPL: %d, %d", upload_size, checksum) && _parser.recv("0K");
-    if (!done) {
-        good = 0;
-    } else { // should check for upload_size == filesize and checksum ok.
-        good = 1;
-    }
     _bg96_mutex.unlock();
     return good;
+}
+
+int BG96::configure_cacert_path(const char* path, int sslctx_id)
+{
+    return 0;
 }
 
