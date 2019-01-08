@@ -31,11 +31,14 @@ private:
     int configure_seclevel(int seclevel);
     int configure_ignorelocaltime(bool ignorelocaltime);
     int configure_negotiatetime(int negotiatetime);
+    void recv_timeout();
 
     BG96* bg96;
     int sslctx_id;
     int client_id;
     int pdp_ctx;
+    int timeout;
+    bool timeout_ovf;
 };
 
 #endif //__BG96TLSSOCKET_H__

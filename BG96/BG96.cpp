@@ -394,7 +394,7 @@ bool BG96::resolveUrl(const char *name, char* ipstr)
     char buf2[50];
     bool ok=false;
     int  err=0, ipcount=0, dnsttl=0;
-    
+
     memset(buf2,0,50);
 
     _bg96_mutex.lock();
@@ -912,6 +912,108 @@ int BG96::sslopen(const char* hostname, int port, int pdp_ctx, int client_id, in
     } else {
         printf("BG96: Error opening TLS socket to host %s\r\n", hostname);
     }
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return done;
+}
+
+bool BG96::sslsend(int client_id, const void * data, uint32_t amount)
+{
+    bool done=false;
+     
+    _bg96_mutex.lock();
+    _parser.set_timeout(BG96_TX_TIMEOUT);
+
+    done = !_parser.send("AT+QSSLSEND=%d,%ld", client_id, amount);
+    if( !done && _parser.recv(">") )
+        done = (_parser.write((char*)data, (int)amount) <= 0);
+
+    if( !done )
+        done = _parser.recv("SEND OK");
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+
+    return done;
+}
+
+bool BG96::sslsend(int client_id, const void * data, uint32_t amount, int timeout)
+{
+    int rc = -1;
+    bool done=false;
+     
+    _bg96_mutex.lock();
+    _parser.set_timeout(timeout);
+
+    done = !_parser.send("AT+QSSLSEND=%d,%ld", client_id, amount);
+    if( !done && _parser.recv(">") )
+        done = (_parser.write((char*)data, (int)amount) <= 0);
+
+    if( !done )
+        done = _parser.recv("SEND OK");
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+
+    return done;    
+}
+
+/** ----------------------------------------------------------
+* @brief  check if RX data has arrived on TLS socket
+* @param  client_id of BG96 TLS socket
+* @retval true/false
+*/
+bool BG96::sslChkRxAvail(int client_id)
+{
+    char  cmd[20];
+
+    sprintf(cmd, "+QSSLURC: \"recv\",%d", client_id);
+    _parser.set_timeout(1);
+    bool i = _parser.recv(cmd);
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    return i;
+}
+
+/** ----------------------------------------------------------
+* @brief  receive data from BG96
+* @param  id of BG96 socket
+* @param  pointer to location to store returned data
+* @param  count of the number of bytes to get
+* @retval number of bytes returned or 0
+*/
+int32_t BG96::sslrecv(int client_id, void *data, uint32_t cnt)
+{
+    int  rxCount, ret_cnt=0;
+
+    _bg96_mutex.lock();
+    sslChkRxAvail(client_id);
+
+    if( _parser.send("AT+QSSLRECV=%d,%d",client_id,(int)cnt) && _parser.recv("+QSSLRECV:%d\r\n",&rxCount) ) {
+        if( rxCount > 0 ) {
+            _parser.getc(); //for some reason BG96 always outputs a 0x0A before the data
+            _parser.read((char*)data, rxCount);
+
+            if( !_parser.recv("OK") ) 
+                rxCount = NSAPI_ERROR_DEVICE_ERROR;
+            }
+        ret_cnt = rxCount;
+        }
+    else
+        ret_cnt = NSAPI_ERROR_DEVICE_ERROR;
+    _bg96_mutex.unlock();
+    return ret_cnt;
+}
+
+/** ----------------------------------------------------------
+* @brief  close the BG96 TLS socket
+* @param  client_id of BG96 socket
+* @retval true of close successful false on failure. <0 if error
+*/
+bool BG96::sslclose(int client_id)
+{
+    bool  done=false;
+
+    _bg96_mutex.lock();
+    _parser.set_timeout(BG96_60s_TO); //10s network response time
+    done = (_parser.send("AT+QSSLCLOSE=%d,%d", client_id, BG96_CLOSE_TO) && _parser.recv("OK"));
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
     return done;
