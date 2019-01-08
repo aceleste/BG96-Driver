@@ -4,12 +4,16 @@
 
 static Thread timeout_thread;
 
+void timeout_task(void * tls_socket);
+
 BG96TLSSocket::BG96TLSSocket(BG96* bg96driver) 
 {
     bg96 = bg96driver;
     pdp_ctx = 1;
     sslctx_id = 0;
     client_id = 0;
+    timeout = BG96TLSSOCKET_DEFAULT_TO;
+    timeout_ovf = false;
 }
 
 nsapi_error_t BG96TLSSocket::set_root_ca_cert(const char* cacert)
@@ -37,11 +41,6 @@ nsapi_error_t BG96TLSSocket::set_root_ca_cert(const char* cacert)
         rc = NSAPI_ERROR_DEVICE_ERROR;
     }
     return rc;
-}
-
-void BG96TLSSocket::set_timeout(int timeout)
-{
-    this->timeout = timeout; 
 }
 
 int BG96TLSSocket::configure_cacert_path(const char* path)
@@ -81,25 +80,27 @@ nsapi_error_t BG96TLSSocket::send(const void * data, nsapi_size_t size)
         return NSAPI_ERROR_TIMEOUT; // Not necessary the issue, but no way to find out.
     };
 }
-void BG96TLSSocket::recv_timeout()
-{
-    this->timeout_ovf = false;
-    while(!this->timeout_ovf) {
-        Thread::wait(this->timeout);
-        this->timeout_ovf = true;
-    }
-}
 
 nsapi_error_t BG96TLSSocket::recv(void * buffer, nsapi_size_t size)
 {
     int cnt = -1;
-    timeout_thread.start(this, recv_timeout);
+    timeout_thread.start(callback(this, timeout_task));
     while (!this->timeout_ovf && cnt < 0) {
         cnt = bg96->sslrecv(this->client_id, buffer, size);
     }
     timeout_thread.terminate();
     if (cnt == -1 && this->timeout_ovf) return NSAPI_ERROR_TIMEOUT;
     return cnt;
+}
+
+void timeout_task(void * arg)
+{
+    BG96TLSSocket* tls_socket = (BG96TLSSocket *)arg;
+    tls_socket->set_timeout_ovf(false);
+    while(!tls_socket->get_timeout_ovf()) {
+        ThisThread::sleep_for(tls_socket->get_timeout());
+        tls_socket->set_timeout_ovf(true);
+    }
 }
 
 
