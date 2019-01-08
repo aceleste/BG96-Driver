@@ -884,6 +884,42 @@ int BG96::configure_cacert_path(const char* path, int sslctx_id)
     return good;
 }
 
+int BG96::configure_client_cert_path(const char* path, int sslctx_id)
+{
+    char cmd[128];
+    bool done=false;
+    int good = 0;
+    sprintf(cmd, "AT+QSSLCFG=\"clientcert\",%d,%s",sslctx_id, path);
+    _bg96_mutex.lock();
+    done = _parser.send(cmd) && _parser.recv("OK");
+    if (done) {
+        printf("BG96: Successfully configured client certificate path\r\n");
+        good = 1;
+    } else {
+        good = 0;
+    }
+    _bg96_mutex.unlock();   
+    return good;
+}
+
+int BG96::configure_privkey_path(const char* path, int sslctx_id)
+{
+    char cmd[128];
+    bool done=false;
+    int good = 0;
+    sprintf(cmd, "AT+QSSLCFG=\"clientkey\",%d,%s",sslctx_id, path);
+    _bg96_mutex.lock();
+    done = _parser.send(cmd) && _parser.recv("OK");
+    if (done) {
+        printf("BG96: Successfully configured client key path\r\n");
+        good = 1;
+    } else {
+        good = 0;
+    }
+    _bg96_mutex.unlock();   
+    return good;
+}
+
 int BG96::sslopen(const char* hostname, int port, int pdp_ctx, int client_id, int sslctx_id)
 {
     char cmd[128];

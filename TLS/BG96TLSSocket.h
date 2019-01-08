@@ -28,6 +28,8 @@ public:
     nsapi_error_t   close();
 
 private:
+    int set_cert_pem(const char * client_cert_pem);
+    int set_privkey_pem(const char * client_private_key_pem);
     int configure_cacert_path(const char* path);
     int configure_client_cert_path(const char* path);
     int configure_client_key_path(const char* path);

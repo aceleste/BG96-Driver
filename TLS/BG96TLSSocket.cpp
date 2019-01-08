@@ -43,10 +43,96 @@ nsapi_error_t BG96TLSSocket::set_root_ca_cert(const char* cacert)
     return rc;
 }
 
+nsapi_error_t BG96TLSSocket::set_client_cert_key(const char * client_cert_pem, const char * client_private_key_pem)
+{
+    nsapi_error_t rc = NSAPI_ERROR_OK;
+    if (client_cert_pem != NULL) {
+        rc = set_cert_pem(client_cert_pem);
+    }
+    if (rc == NSAPI_ERROR_OK && client_private_key_pem !=NULL) {
+        rc = set_privkey_pem(client_private_key_pem);
+    } 
+    return rc;
+}
+
+nsapi_error_t BG96TLSSocket::set_cert_pem(const char * client_cert_pem)
+    nsapi_error_t rc = NSAPI_ERROR_DEVICE_ERROR;
+    static char cert_pem_filename[80];
+    memset(cert_pem_filename, 0, 80);
+    if (client_cert_pem == NULL) {
+        printf("BG96TLSSocket: error - invalid client certificate.\r\n");
+        return rc;
+    }
+
+    if ( bg96->send_file(client_cert_pem, "cert.pem", true) ) {
+        strcpy(cert_pem_filename, "cert.pem");
+    } else {
+        printf("BG96TLSSocket: Error transferring client certificate file to modem.\r\n");
+        rc = NSAPI_ERROR_DEVICE_ERROR;
+        return rc;
+    }
+
+    if ( configure_client_cert_path(cert_pem_filename) ){
+        rc = NSAPI_ERROR_OK;
+    } else {
+        printf("BG96TSLSocket: Error while configuring client cert path in TLS Socket.\r\n");
+        rc = NSAPI_ERROR_DEVICE_ERROR;
+    }
+    return rc;
+}
+
+nsapi_error_t BG96TLSSocket::set_privkey_pem(const char * client_private_key_pem)
+    nsapi_error_t rc = NSAPI_ERROR_DEVICE_ERROR;
+    static char privkey_pem_filename[80];
+    memset(privkey_pem_filename, 0, 80);
+    if (client_private_key_pem == NULL) {
+        printf("BG96TLSSocket: error - invalid client key.\r\n");
+        return rc;
+    }
+
+    if ( bg96->send_file(client_private_key_pem, "privkey.pem", true) ) {
+        strcpy(privkey_pem_filename, "privkey.pem");
+    } else {
+        printf("BG96TLSSocket: Error transferring private key file to modem.\r\n");
+        rc = NSAPI_ERROR_DEVICE_ERROR;
+        return rc;
+    }
+
+    if ( configure_client_cert_path(privkey_pem_filename) ){
+        rc = NSAPI_ERROR_OK;
+    } else {
+        printf("BG96TSLSocket: Error while configuring private key path in TLS Socket.\r\n");
+        rc = NSAPI_ERROR_DEVICE_ERROR;
+    }
+    return rc;
+}
+
 int BG96TLSSocket::configure_cacert_path(const char* path)
 {
     int rc = 0;
     if (bg96->configure_cacert_path(path, sslctx_id)) {
+        rc = 1;
+    } else {
+        rc = 0;
+    }
+    return rc;
+}
+
+int BG96TLSSocket::configure_client_cert_path(const char* path)
+{
+    int rc = 0;
+    if (bg96->configure_client_cert_path(path, sslctx_id)) {
+        rc = 1;
+    } else {
+        rc = 0;
+    }
+    return rc;
+}
+
+int BG96TLSSocket::configure_privkey_path(const char* path)
+{
+    int rc = 0;
+    if (bg96->configure_privkey_path(path, sslctx_id)) {
         rc = 1;
     } else {
         rc = 0;
