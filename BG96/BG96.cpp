@@ -514,8 +514,8 @@ const char *BG96::getMACAddress(char* sn)
 */
 bool BG96::isConnected(void)
 {
-    char ip[25];
-    return getIPAddress(ip) != NULL;
+    char ipAddress[50];
+    return resolveUrl("www.google.com", ipAddress);
 }
 
 /** ----------------------------------------------------------
@@ -965,33 +965,25 @@ bool BG96::ssl_client_status(int client_id)
     int socket_state;
     int pdp_id, server_id, ssl_id;
     int access_mode;
+    char dummy[10];
     char ATport[26];
     char ip[26];
     _bg96_mutex.lock();
-    _parser.set_timeout(BG96_WAIT4READY);
+    _parser.set_timeout(BG96_60s_TO);
     if(_parser.send("AT+QSSLSTATE=%d", client_id))
-    _parser.recv("+QSSLSTATE: %d,\"SSLClient\",\"%s\",%d,%d,%d,%d,%d,%d,\"%s\",%d", 
-                                        &id,                  
-                                        ip, 
-                                        &remoteport, 
-                                        &localport, 
-                                        &socket_state,
-                                        &pdp_id,
-                                        &server_id,
-                                        &access_mode,
-                                        ATport,
-                                        &ssl_id
-                                         );
+    _parser.recv("+QSSLSTATE:%d,\"%s\",\"%s\",%d,%d,%d,%d,%d,%d,\"%s\",%d",
+                        &id,dummy,ip,&remoteport,&localport,&socket_state,
+                        &pdp_id,&server_id,&access_mode,ATport,&ssl_id);
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
-    printf("TLSState: \r\n");
-    printf("Client ID: %d\r\n", id);
-    printf("Server IP: %s\r\n", ip);
-    printf("Remote Port: %d\r\n", remoteport);
-    printf("Local Port: %d\r\n", localport);
-    printf("Socket State: %d\r\n", socket_state);
-    printf("Access_mode: %d\r\n", access_mode);
-    printf("AT Port: %s\r\n", ATport);
+    // printf("TLSState: \r\n");
+    // printf("Client ID: %d\r\n", id);
+    // printf("Server IP: %s\r\n", ip);
+    // printf("Remote Port: %d\r\n", remoteport);
+    // printf("Local Port: %d\r\n", localport);
+    // printf("Socket State: %d\r\n", socket_state);
+    // printf("Access_mode: %d\r\n", access_mode);
+    // printf("AT Port: %s\r\n", ATport);
     if (done && id == client_id && socket_state == 2) return true;
     return false;
 
@@ -1058,10 +1050,9 @@ int32_t BG96::sslrecv(int client_id, void *data, uint32_t cnt)
     int  rxCount, ret_cnt=0;
 
     _bg96_mutex.lock();
-    if(sslChkRxAvail(client_id)) {
-        _parser.set_timeout(BG96_RX_TIMEOUT);
-        _parser.send("AT+QSSLRECV=%d,%d",client_id,(int)cnt);
-        _parser.recv("+QSSLRECV:%d\r\n",&rxCount);
+    sslChkRxAvail(client_id);
+    _parser.set_timeout(BG96_RX_TIMEOUT);
+    if (_parser.send("AT+QSSLRECV=%d,%d",client_id,(int)cnt) && _parser.recv("+QSSLRECV:%d\r\n",&rxCount)){
         if ( rxCount > 0 ) {
                 //_parser.getc(); //for some reason BG96 always outputs a 0x0A before the data
             ret_cnt = _parser.read((char*)data, rxCount);
@@ -1070,8 +1061,10 @@ int32_t BG96::sslrecv(int client_id, void *data, uint32_t cnt)
                 rxCount = NSAPI_ERROR_DEVICE_ERROR;
         } else {
             ret_cnt = rxCount;
-        }
+        }  
     }
+    
+    
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
     return ret_cnt;

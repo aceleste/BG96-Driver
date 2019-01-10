@@ -146,7 +146,7 @@ BG96Interface::BG96Interface(void) :
     g_isInitialized(NSAPI_ERROR_NO_CONNECTION),
     g_bg96_queue_id(-1),
     scheduled_events(0),
-    _BG96(true)
+    _BG96(false)
 {
     for( int i=0; i<BG96_SOCKET_COUNT; i++ ) {
         g_sock[i].id = -1;
@@ -192,7 +192,7 @@ nsapi_error_t BG96Interface::connect(void)
 #endif
     //printf("[BG96Interface]: MAC address = %s\r\n", get_mac_address());
     //printf("[BG96Interface]: IP address = %s\r\n", get_ip_address());
-    while(!_BG96.resolveUrl("www.google.com", &ipaddress[0])) {}
+    while(!_BG96.isConnected()) {}
     //printf("[BG96Interface]: The IP address www.google.com is: %s\r\n", ipaddress);
     return ret;
 }
