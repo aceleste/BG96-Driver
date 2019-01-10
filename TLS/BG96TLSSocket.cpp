@@ -1,6 +1,7 @@
 #include "BG96TLSSocket.h"
 #include "BG96.h"
 #include "rtos.h"
+#include "Callback.h"
 
 static Thread timeout_thread;
 
@@ -56,6 +57,7 @@ nsapi_error_t BG96TLSSocket::set_client_cert_key(const char * client_cert_pem, c
 }
 
 nsapi_error_t BG96TLSSocket::set_cert_pem(const char * client_cert_pem)
+{
     nsapi_error_t rc = NSAPI_ERROR_DEVICE_ERROR;
     static char cert_pem_filename[80];
     memset(cert_pem_filename, 0, 80);
@@ -82,6 +84,7 @@ nsapi_error_t BG96TLSSocket::set_cert_pem(const char * client_cert_pem)
 }
 
 nsapi_error_t BG96TLSSocket::set_privkey_pem(const char * client_private_key_pem)
+{
     nsapi_error_t rc = NSAPI_ERROR_DEVICE_ERROR;
     static char privkey_pem_filename[80];
     memset(privkey_pem_filename, 0, 80);
@@ -158,10 +161,17 @@ nsapi_error_t BG96TLSSocket::connect(const char* hostname, int port)
     return rc;
 }
 
+bool BG96TLSSocket::is_connected()
+{
+    return bg96->ssl_client_status(client_id);
+}
+
 nsapi_error_t BG96TLSSocket::send(const void * data, nsapi_size_t size)
 {
-    if ( bg96->sslsend(client_id, data, size, this->timeout) ) {
-        return NSAPI_ERROR_OK;
+    int rc = -1;
+    rc = bg96->sslsend(client_id, data, size, this->timeout);
+    if ( rc > 0 ) {
+        return rc;
     } else {
         return NSAPI_ERROR_TIMEOUT; // Not necessary the issue, but no way to find out.
     };
@@ -170,7 +180,7 @@ nsapi_error_t BG96TLSSocket::send(const void * data, nsapi_size_t size)
 nsapi_error_t BG96TLSSocket::recv(void * buffer, nsapi_size_t size)
 {
     int cnt = -1;
-    timeout_thread.start(callback(this, timeout_task));
+    timeout_thread.start(callback(timeout_task, this));
     while (!this->timeout_ovf && cnt < 0) {
         cnt = bg96->sslrecv(this->client_id, buffer, size);
     }
@@ -184,9 +194,16 @@ void timeout_task(void * arg)
     BG96TLSSocket* tls_socket = (BG96TLSSocket *)arg;
     tls_socket->set_timeout_ovf(false);
     while(!tls_socket->get_timeout_ovf()) {
-        ThisThread::sleep_for(tls_socket->get_timeout());
+        Thread::wait(tls_socket->get_timeout());
         tls_socket->set_timeout_ovf(true);
     }
 }
+
+nsapi_error_t   BG96TLSSocket::close()
+{
+    return bg96->sslclose(this->client_id);
+}
+
+
 
 

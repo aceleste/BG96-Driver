@@ -398,22 +398,28 @@ bool BG96::resolveUrl(const char *name, char* ipstr)
     memset(buf2,0,50);
 
     _bg96_mutex.lock();
-    _parser.set_timeout(4000);
-    ok =  (    _parser.send("AT+QIDNSGIP=%d,\"%s\"",_contextID,name)
-            && _parser.recv("OK") 
-            && _parser.recv("+QIURC: \"dnsgip\",%d,%d,%d",&err, &ipcount, &dnsttl) 
-            && err==0 
-            && ipcount > 0
-          );
-
-    if( ok ) {
-        ok = _parser.recv("+QIURC: \"dnsgip\",\"%[^\"]\"",ipstr);       //use the first DNS value
-        for( int i=0; i<ipcount-1; i++ )
-            _parser.recv("+QIURC: \"dnsgip\",\"%[^\"]\"", buf2);   //and discrard the rest  if >1
+    _parser.set_timeout(BG96_1s_WAIT);
+    _parser.send("AT+QIDNSGIP=%d,\"%s\"",_contextID,name);
+    ok = _parser.recv("OK");
+    if (ok) { // timed out for ERROR, try OK
+        _parser.set_timeout(BG96_60s_TO);
+        if (_parser.recv("+QIURC: \"dnsgip\",%s\r\n", buf2)) {
+            if ( sscanf(buf2, "%d", &err) == 1 && err > 0 ) {
+                ok = false;
+            } else if ( sscanf(buf2, "%d,%d,%d", &err, &ipcount, &dnsttl) == 3 && err==0 && ipcount > 0 ) {
+                ok = _parser.recv("+QIURC: \"dnsgip\",\"%[^\"]\"",ipstr);       //use the first DNS value
+                if (ok) {
+                    _parser.set_timeout(BG96_1s_WAIT);
+                    for(int i= 0; i<ipcount-1;i++) 
+                        _parser.recv("+QIURC: \"dnsgip\",\"%[^\"]\"", buf2);   //and discrard the rest  if >1
+                }
+            }
         }
+    } else {
+        ok = false;
+    }
     _parser.set_timeout(BG96_AT_TIMEOUT);
-    _bg96_mutex.unlock();
-        
+    _bg96_mutex.unlock();  
     return ok;
 }
 
@@ -924,9 +930,8 @@ int BG96::sslopen(const char* hostname, int port, int pdp_ctx, int client_id, in
 {
     char cmd[128];
     bool done=false;
-    int good=0;
     int cid=0;
-    int err=0;
+    int err=-1;
 
     if (client_id <0 || client_id > 11) {
         printf("BG96: Wrong Client ID\r\n");
@@ -941,11 +946,10 @@ int BG96::sslopen(const char* hostname, int port, int pdp_ctx, int client_id, in
     sprintf(cmd, "AT+QSSLOPEN=%d,%d,%d,\"%s\",%d", pdp_ctx, client_id, sslctx_id, hostname, port);
     _bg96_mutex.lock();
     _parser.set_timeout(BG96_150s_TO);
-    done =  _parser.send(cmd) 
-            && _parser.recv("+QSSLOPEN: %d,%d", &cid, &err) 
-            && err == 0;
-    if (done) {
-    } else {
+    done =  _parser.send(cmd) && _parser.recv("OK");
+    if (done) _parser.recv("+QSSLOPEN: %d,%d", &cid, &err);
+    if (err != 0) done=false; 
+    if (!done) {
         printf("BG96: Error opening TLS socket to host %s\r\n", hostname);
     }
     _parser.set_timeout(BG96_AT_TIMEOUT);
@@ -953,43 +957,78 @@ int BG96::sslopen(const char* hostname, int port, int pdp_ctx, int client_id, in
     return done;
 }
 
-bool BG96::sslsend(int client_id, const void * data, uint32_t amount)
+bool BG96::ssl_client_status(int client_id)
 {
     bool done=false;
+    int id = -1;
+    int remoteport, localport;
+    int socket_state;
+    int pdp_id, server_id, ssl_id;
+    int access_mode;
+    char ATport[26];
+    char ip[26];
+    _bg96_mutex.lock();
+    _parser.set_timeout(BG96_WAIT4READY);
+    if(_parser.send("AT+QSSLSTATE=%d", client_id))
+    _parser.recv("+QSSLSTATE: %d,\"SSLClient\",\"%s\",%d,%d,%d,%d,%d,%d,\"%s\",%d", 
+                                        &id,                  
+                                        ip, 
+                                        &remoteport, 
+                                        &localport, 
+                                        &socket_state,
+                                        &pdp_id,
+                                        &server_id,
+                                        &access_mode,
+                                        ATport,
+                                        &ssl_id
+                                         );
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    printf("TLSState: \r\n");
+    printf("Client ID: %d\r\n", id);
+    printf("Server IP: %s\r\n", ip);
+    printf("Remote Port: %d\r\n", remoteport);
+    printf("Local Port: %d\r\n", localport);
+    printf("Socket State: %d\r\n", socket_state);
+    printf("Access_mode: %d\r\n", access_mode);
+    printf("AT Port: %s\r\n", ATport);
+    if (done && id == client_id && socket_state == 2) return true;
+    return false;
+
+}
+
+int BG96::sslsend(int client_id, const void * data, uint32_t amount)
+{
+    int size=-1;
      
     _bg96_mutex.lock();
     _parser.set_timeout(BG96_TX_TIMEOUT);
 
-    done = !_parser.send("AT+QSSLSEND=%d,%ld", client_id, amount);
-    if( !done && _parser.recv(">") )
-        done = (_parser.write((char*)data, (int)amount) <= 0);
-
-    if( !done )
-        done = _parser.recv("SEND OK");
+    if ( _parser.send("AT+QSSLSEND=%d,%ld", client_id, amount) && _parser.recv(">") )
+        size = _parser.write((char*)data, (int)amount);
+    _parser.recv("SEND OK");
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
 
-    return done;
+    return size;
 }
 
-bool BG96::sslsend(int client_id, const void * data, uint32_t amount, int timeout)
+int BG96::sslsend(int client_id, const void * data, uint32_t amount, int timeout)
 {
-    int rc = -1;
-    bool done=false;
+    int size = -1;
      
     _bg96_mutex.lock();
     _parser.set_timeout(timeout);
 
-    done = !_parser.send("AT+QSSLSEND=%d,%ld", client_id, amount);
-    if( !done && _parser.recv(">") )
-        done = (_parser.write((char*)data, (int)amount) <= 0);
-
-    if( !done )
-        done = _parser.recv("SEND OK");
+    _parser.send("AT+QSSLSEND=%d,%ld", client_id, amount);
+    if (_parser.recv(">")) {
+        size = _parser.write((char*)data, (int)amount);
+        _parser.recv("SEND OK");
+    }
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
 
-    return done;    
+    return size;    
 }
 
 /** ----------------------------------------------------------
@@ -1000,7 +1039,6 @@ bool BG96::sslsend(int client_id, const void * data, uint32_t amount, int timeou
 bool BG96::sslChkRxAvail(int client_id)
 {
     char  cmd[20];
-
     sprintf(cmd, "+QSSLURC: \"recv\",%d", client_id);
     _parser.set_timeout(1);
     bool i = _parser.recv(cmd);
@@ -1020,20 +1058,21 @@ int32_t BG96::sslrecv(int client_id, void *data, uint32_t cnt)
     int  rxCount, ret_cnt=0;
 
     _bg96_mutex.lock();
-    sslChkRxAvail(client_id);
-
-    if( _parser.send("AT+QSSLRECV=%d,%d",client_id,(int)cnt) && _parser.recv("+QSSLRECV:%d\r\n",&rxCount) ) {
-        if( rxCount > 0 ) {
-            _parser.getc(); //for some reason BG96 always outputs a 0x0A before the data
-            _parser.read((char*)data, rxCount);
+    if(sslChkRxAvail(client_id)) {
+        _parser.set_timeout(BG96_RX_TIMEOUT);
+        _parser.send("AT+QSSLRECV=%d,%d",client_id,(int)cnt);
+        _parser.recv("+QSSLRECV:%d\r\n",&rxCount);
+        if ( rxCount > 0 ) {
+                //_parser.getc(); //for some reason BG96 always outputs a 0x0A before the data
+            ret_cnt = _parser.read((char*)data, rxCount);
 
             if( !_parser.recv("OK") ) 
                 rxCount = NSAPI_ERROR_DEVICE_ERROR;
-            }
-        ret_cnt = rxCount;
+        } else {
+            ret_cnt = rxCount;
         }
-    else
-        ret_cnt = NSAPI_ERROR_DEVICE_ERROR;
+    }
+    _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
     return ret_cnt;
 }

@@ -25,6 +25,7 @@ public:
     nsapi_error_t   set_root_ca_cert(const char * root_ca_pem);
     nsapi_error_t   set_client_cert_key(const char * client_cert_pem, const char * client_private_key_pem);
     nsapi_error_t   connect(const char* hostname, int port);
+    bool            is_connected();
     nsapi_error_t   close();
 
 private:
@@ -32,7 +33,7 @@ private:
     int set_privkey_pem(const char * client_private_key_pem);
     int configure_cacert_path(const char* path);
     int configure_client_cert_path(const char* path);
-    int configure_client_key_path(const char* path);
+    int configure_privkey_path(const char* path);
     int configure_sslversion(int version);
 //    nsapi_error_t configure_ciphersuite(BG96TLSSocket_cipher_suite_t suite);
     int configure_seclevel(int seclevel);

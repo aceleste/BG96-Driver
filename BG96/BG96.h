@@ -312,15 +312,17 @@ public:
 
     int         sslopen(const char* hostname, int port, int pdp_ctx, int client_id, int sslctx_id);
 
-    bool        sslsend(int client_id, const void *data, uint32_t amount);
+    int        sslsend(int client_id, const void *data, uint32_t amount);
 
-    bool        sslsend(int client_id, const void * data, uint32_t amount, int timeout);
+    int        sslsend(int client_id, const void * data, uint32_t amount, int timeout);
 
     bool        sslChkRxAvail(int client_id);
 
     int32_t    sslrecv(int client_id, void *data, uint32_t cnt);
 
     bool       sslclose(int client_id);
+
+    bool       ssl_client_status(int client_id);
 
     // int         sslrecv();
 
