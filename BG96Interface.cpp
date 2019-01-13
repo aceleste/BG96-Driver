@@ -148,7 +148,7 @@ BG96Interface::BG96Interface(void) :
     g_isInitialized(NSAPI_ERROR_NO_CONNECTION),
     g_bg96_queue_id(-1),
     scheduled_events(0),
-    _BG96(false)
+    _BG96(true)
 {
     for( int i=0; i<BG96_SOCKET_COUNT; i++ ) {
         g_sock[i].id = -1;
@@ -184,7 +184,7 @@ BG96Interface::~BG96Interface()
 nsapi_error_t BG96Interface::connect(void)
 {
     nsapi_error_t ret = NSAPI_ERROR_OK;
-    char ipaddress[16];
+//    char ipaddress[16];
     debugOutput(DBGMSG_DRV,"BG96Interface::connect(void) ENTER.");
     if( g_isInitialized == NSAPI_ERROR_NO_CONNECTION )
 #if defined(MBED_CONF_APP_BG96_APN_USER) && defined(MBED_CONF_APP_BG96_APN_PWD)
@@ -988,9 +988,9 @@ void BG96Interface::_eq_schedule(void)
         }
 }
 
-void BG96Interface::initializeGNSS(void)
+bool BG96Interface::initializeBG96(void)
 {
-    _BG96.startup();
+    return _BG96.startup();
 }
 
 GNSSLoc * BG96Interface::getGNSSLocation()
@@ -1012,6 +1012,7 @@ BG96TLSSocket * BG96Interface::getBG96TLSSocket()
 {
     BG96* bg96 = &_BG96;
     BG96TLSSocket * socket = new BG96TLSSocket(bg96);
+    return socket;
 }
 
 BG96MQTTClient * BG96Interface::getBG96MQTTClient(BG96TLSSocket* tls)
@@ -1019,4 +1020,5 @@ BG96MQTTClient * BG96Interface::getBG96MQTTClient(BG96TLSSocket* tls)
     BG96* bg96 = &_BG96;
     if (tls == NULL) tls = getBG96TLSSocket();
     BG96MQTTClient * mqtt = new BG96MQTTClient(bg96, tls);
+    return mqtt;
 }

@@ -179,7 +179,9 @@ public:
     /** InitializeGNSS module. Current implementation calls startup.
      * 
      */
-    void initializeGNSS(void);
+    bool initializeBG96(void);
+
+    void initializeGNSS(void) {initializeBG96();};
 
     BG96TLSSocket * getBG96TLSSocket();
 

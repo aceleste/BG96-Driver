@@ -138,9 +138,9 @@ typedef struct {
 
 typedef struct {
     int pdp_id;
-    char* apn;
-    char* username;
-    char* password;
+    const char* apn;
+    const char* username;
+    const char* password;
 } BG96_PDP_Ctx;
 
 /** BG96Interface class.

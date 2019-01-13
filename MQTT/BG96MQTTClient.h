@@ -3,14 +3,14 @@
 #include "BG96.h"
 #include "BG96TLSSocket.h"
 
-#define BG96_MQTT_CLIENT_ERROR_FAILED_NETWORK_OPEN  -1
-#define BG96_MQTT_CLIENT_ERROR_SUCCESSFUL           0
-#define BG96_MQTT_CLIENT_ERROR_WRONG_PARAMETER      1
-#define BG96_MQTT_CLIENT_ERROR_IDENTIFIER_OCCUPIED  2
-#define BG96_MQTT_CLIENT_ERROR_PDP_ACTIVATE_FAIL    3
-#define BG96_MQTT_CLIENT_ERROR_PARSE_DOMAIN_FAIL    4
-#define BG96_MQTT_CLIENT_ERROR_NETWORK_DISCONNECT   5
-#define BG96_MQTT_CLIENT_ERROR_CLOSE_NETWORK_FAIL   -1
+#define BG96_MQTT_NETWORK_ERROR_FAILED_NETWORK_OPEN         -1
+#define BG96_MQTT_NETWORK_ERROR_SUCCESSFUL                  0
+#define BG96_MQTT_NETWORK_ERROR_WRONG_PARAMETER             1
+#define BG96_MQTT_NETWORK_ERROR_MQTT_OCCUPIED               2
+#define BG96_MQTT_NETWORK_ERROR_PDP_ACTIVATION_ERROR        3
+#define BG96_MQTT_NETWORK_ERROR_FAIL_DOMAIN_NAME_PARSING    4
+#define BG96_MQTT_NETWORK_ERROR_NETWORK_DISCONNECTED        5
+#define BG96_MQTT_NETWORK_ERROR_CLOSE_NETWORK_FAIL          -1
 
 #define BG96_MQTT_CLIENT_CONNECT_ERROR_ACCEPTED             0
 #define BG96_MQTT_CLIENT_CONNECT_ERROR_UNNACCEPTED_PROTOCOL 1
@@ -18,6 +18,7 @@
 #define BG96_MQTT_CLIENT_CONNECT_ERROR_SERVER_UNAVAILABLE   3
 #define BG96_MQTT_CLIENT_CONNECT_ERROR_BAD_CREDENTIALS      4
 #define BG96_MQTT_CLIENT_CONNECT_ERROR_NOT_AUTHORIZED       5
+#define BG96_MQTT_CLIENT_CONNECT_ERROR_AT_CMD_TIMEOUT       6
 
 #define BG96_MQTT_CLIENT_SUBSCRIBE_SUCCESSFUL               0
 #define BG96_MQTT_CLIENT_SUBSCRIBE_PACKET_RETRANSMIT        1
@@ -29,18 +30,23 @@ typedef struct {
 } MQTTString;
 
 typedef struct {
-    MQTTString client_id;
+    const char* payload;
+    u_int32_t len;
+} MQTTConstString;
+
+typedef struct {
+    MQTTConstString client_id;
     MQTTString username;
-    MQTTString password;
+    MQTTConstString password;
 } MQTTConnect_Ctx;
 
 typedef struct
 {
-	MQTTString hostname;
+	MQTTConstString hostname;
     int port;
-    MQTTString ca_cert;
-    MQTTString client_cert;
-    MQTTString client_key;
+    MQTTConstString ca_cert;
+    MQTTConstString client_cert;
+    MQTTConstString client_key;
 } MQTTNetwork_Ctx;
 
 typedef struct {

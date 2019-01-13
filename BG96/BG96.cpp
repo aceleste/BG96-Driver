@@ -36,17 +36,6 @@
 #include "GNSSLoc.h"
 #include "nsapi_types.h"
 
-#define BG96_1s_WAIT            1000   //will wait for 1 second for startup
-#define BG96_60s_TO             60000  //wait 60 seconds
-#define BG96_150s_TO            150000 //wait 150s (2.5 mins)
-#define BG96_TX_TIMEOUT         2000   //time before a TX timeout occurs
-#define BG96_RX_TIMEOUT         1000   //time before a TX timeout occurs
-#define BG96_WAIT4READY         15000  //wait 15 seconds for 'RDY' after reset
-#define BG96_AT_TIMEOUT         1000   //standard AT command timeout
-#define BG96_WRK_CONTEXT        1      //we will only use context 1 in driver
-#define BG96_CLOSE_TO           1      //wait x seconds for a socket close
-#define BG96_MISC_TIMEOUT       1000
-
 #ifndef DEFAULT_PDP
 #define DEFAULT_PDP 1
 #endif
@@ -186,7 +175,7 @@ int BG96::configure_pdp_context(BG96_PDP_Ctx * pdp_ctx)
     if (pdp_ctx == NULL) return -1;
     setContext(pdp_ctx->pdp_id);
     _bg96_mutex.lock();
-    if (_parser.send("AT+QICSGP=%d,1,%s,%s,%s", pdp_ctx->pdp_id,
+    if (_parser.send("AT+QICSGP=%d,1,\"%s\",\"%s\",\"%s\"", pdp_ctx->pdp_id,
                                             pdp_ctx->apn,
                                             pdp_ctx->username,
                                             pdp_ctx->password) && _parser.recv("OK")) rc = pdp_ctx->pdp_id;
@@ -830,6 +819,7 @@ int BG96::send_file(const char* content, const char* filename, bool overrideok)
             printf("BG96: Error uploading file %s\r\n", filename);
             good = 0;
         } else { // should check for upload_size == filesize and checksum ok.
+            _parser.recv("OK");
             printf("BG96: Successfully uploaded file %s\r\n", filename);
             good = 1;
         }
@@ -843,16 +833,20 @@ int BG96::configure_cacert_path(const char* path, int sslctx_id)
 {
     char cmd[128];
     bool done=false;
-    int good = 0;
-    sprintf(cmd, "AT+QSSLCFG=\"cacert\",%d,%s",sslctx_id, path);
+    int good = -1;
+    sprintf(cmd, "AT+QSSLCFG=\"cacert\",%d,\"%s\"",sslctx_id, path);
     _bg96_mutex.lock();
+    _parser.set_timeout(3000);
     done = _parser.send(cmd) && _parser.recv("OK");
     if (done) {
         printf("BG96: Successfully configured CA certificate path\r\n");
         good = 1;
     } else {
-        good = 0;
+        char errstring[20];
+        if (getError(errstring)) sscanf(errstring,"Error:%d",&good);
+        _parser.send("AT+QSSLCFG=?") && _parser.recv("OK");
     }
+    _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();   
     return good;
 }
@@ -862,7 +856,7 @@ int BG96::configure_client_cert_path(const char* path, int sslctx_id)
     char cmd[128];
     bool done=false;
     int good = 0;
-    sprintf(cmd, "AT+QSSLCFG=\"clientcert\",%d,%s",sslctx_id, path);
+    sprintf(cmd, "AT+QSSLCFG=\"clientcert\",%d,\"%s\"",sslctx_id, path);
     _bg96_mutex.lock();
     done = _parser.send(cmd) && _parser.recv("OK");
     if (done) {
@@ -880,7 +874,7 @@ int BG96::configure_privkey_path(const char* path, int sslctx_id)
     char cmd[128];
     bool done=false;
     int good = 0;
-    sprintf(cmd, "AT+QSSLCFG=\"clientkey\",%d,%s",sslctx_id, path);
+    sprintf(cmd, "AT+QSSLCFG=\"clientkey\",%d,\"%s\"",sslctx_id, path);
     _bg96_mutex.lock();
     done = _parser.send(cmd) && _parser.recv("OK");
     if (done) {
@@ -1060,14 +1054,18 @@ int BG96::mqtt_open(const char* hostname, int port)
     int rc=-1;
     char cmd[80];
 
-    sprintf(cmd, "AT+QMTOPEN=%d,\"%s\",%d", 0, hostname, &port);
+    sprintf(cmd, "AT+QMTOPEN=%d,\"%s\",%d", 0, hostname, port);
 
     _bg96_mutex.lock();
-    _parser.set_timeout(BG96_60s_TO);
+    _parser.set_timeout(75000);
     if (_parser.send(cmd) && _parser.recv("OK")) {
         _parser.recv("+QMTOPEN: %d,%d\r\n", &id, &rc);
     } else {
-        rc = NSAPI_ERROR_TIMEOUT; 
+        char errstring[15];
+        _parser.set_timeout(BG96_AT_TIMEOUT);
+        _bg96_mutex.unlock();   
+        if(getError(errstring)) sscanf(errstring, "Error:%d", &rc);
+        return rc;
     }
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
@@ -1092,17 +1090,17 @@ int BG96::mqtt_close()
 
 int BG96::send_generic_cmd(const char* cmd, int timeout)
 {
-    char res[80];
     int rc=-NSAPI_ERROR_DEVICE_ERROR;
-    int err=0;
     if (cmd == NULL) return NSAPI_ERROR_PARAMETER;
     _bg96_mutex.lock();
     _parser.set_timeout(timeout);
-    if (_parser.send(cmd)) _parser.recv("%[^\\r]", res);
-    if (strcmp(res,"OK") == 0) rc = NSAPI_ERROR_OK;
-    if (sscanf(res,"+CME ERROR:%d", &err) > 0) rc=err;
+    rc = _parser.send(cmd) && _parser.recv("OK");
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
+    if (rc < 0) {
+        char errstring[15];
+        if (getError(errstring)) sscanf(errstring, "Error:%d", &rc);
+    }
     return rc;
 }
 
@@ -1112,23 +1110,24 @@ int BG96::mqtt_connect(int sslctx_id, const char* clientid,
                                       ConnectResult &result)
 {
     char cmd[256];
-    char res[20];
-    char rest[20];
-    memset(res, 0, 20);
 
     int id=-1;
     int rc=-1;
-    int err=-1;
 
-    sprintf(cmd, "AT+QMTCONN=%d,%s,%s,%s", sslctx_id, clientid, username, password);
+    sprintf(cmd, "AT+QMTCONN=%d,\"%s\",\"%s\",\"%s\"", sslctx_id, clientid, username, password);
     _bg96_mutex.lock();
-    _parser.set_timeout(5000);
-    if (_parser.send(cmd)) _parser.recv("%[^\\r]", res);
-    if (strcmp(res,"0K")==0) {
-        _parser.recv("+QMTCONN: %d, %[^\\r]", &id, rest);
-        if (scanf(rest, "%d,%d", &(result.result), &(result.rc)) < 2) rc = result.result;
-    } 
-    if (scanf(res, "+CME ERROR: %d", &err)) rc = err;
+    _parser.set_timeout(10000);
+    rc = _parser.send(cmd) && _parser.recv("OK");
+    if (!rc) {
+        char errstring[15];
+        _parser.set_timeout(BG96_AT_TIMEOUT);
+        _bg96_mutex.unlock();
+        if (getError(errstring)) sscanf(errstring, "Error:%d", &result.rc);
+        result.result = -1;
+        return rc;
+    } else {
+        _parser.recv("+QTCONN:%d,%d,%d", &id, &result.result, &result.rc);
+    }
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
     return rc;    

@@ -27,21 +27,56 @@ nsapi_error_t BG96MQTTClient::configure_pdp_context(BG96_PDP_Ctx* pdp_ctx)
 
 nsapi_error_t BG96MQTTClient::open(MQTTNetwork_Ctx* network_ctx)
 {
+    int rc=-1;
+    char cmd[40];
     if (network_ctx == NULL) return NSAPI_ERROR_DEVICE_ERROR;
 
     if (_ctx.options == NULL) return NSAPI_ERROR_DEVICE_ERROR;
 
-    if (_ctx.options->sslenable) {
-
+    if (_ctx.options->sslenable > 0) {
+        sprintf(cmd, "AT+QSSLCFG=\"sslversion\",%d,4",_ctx.ssl_ctx_id); //Quick turn around. TODO: Use a specific API.
+        _bg96->send_generic_cmd(cmd,BG96_AT_TIMEOUT);
+        sprintf(cmd, "AT+QSSLCFG=\"seclevel\",%d,1",_ctx.ssl_ctx_id); //Quick turn around. TODO: Use a specific API.
+        _bg96->send_generic_cmd(cmd,BG96_AT_TIMEOUT);       
         _tls->set_root_ca_cert(network_ctx->ca_cert.payload);
         _tls->set_client_cert_key(network_ctx->client_cert.payload,
                                   network_ctx->client_key.payload);
+
     }
 
 
     //if (!_bg96->isConnected()) _bg96->connect(_ctx.pdp_ctx_id); //Check is needed or 
 
-    _bg96->mqtt_open(network_ctx->hostname.payload, network_ctx->port); 
+    rc = _bg96->mqtt_open(network_ctx->hostname.payload, network_ctx->port); 
+    switch(rc) {
+        case BG96_MQTT_NETWORK_ERROR_WRONG_PARAMETER:
+#if defined(MQTT_DEBUG)
+            printf("BG96MQTTClient: Error opening network socket. Wrong parameter.\r\n");
+#endif
+            return NSAPI_ERROR_DEVICE_ERROR;
+        case BG96_MQTT_NETWORK_ERROR_MQTT_OCCUPIED:
+#if defined(MQTT_DEBUG)
+            printf("BG96MQTTClient: Error opening network socket. MQTT occupied.\r\n");
+#endif       
+            return NSAPI_ERROR_DEVICE_ERROR;
+        case BG96_MQTT_NETWORK_ERROR_PDP_ACTIVATION_ERROR:
+#if defined(MQTT_DEBUG)
+            printf("BG96MQTTClient: Error opening network socket. Failed to activate PDP.\r\n");
+#endif          
+            return NSAPI_ERROR_DEVICE_ERROR;
+        case BG96_MQTT_NETWORK_ERROR_FAIL_DOMAIN_NAME_PARSING:
+#if defined(MQTT_DEBUG)
+            printf("BG96MQTTClient: Error opening network socket. Failed to parse domain name.\r\n");
+#endif            
+            return NSAPI_ERROR_DEVICE_ERROR;
+        case BG96_MQTT_NETWORK_ERROR_NETWORK_DISCONNECTED:
+#if defined(MQTT_DEBUG)
+            printf("BG96MQTTClient: Error opening network socket. Network disconnection.\r\n");
+#endif            
+            return NSAPI_ERROR_DEVICE_ERROR;
+        default:
+            return NSAPI_ERROR_DEVICE_ERROR;
+    }
     
 }
 
@@ -67,6 +102,7 @@ nsapi_error_t BG96MQTTClient::configure_mqtt(MQTTClientOptions* options)
     RETURN_RC_IF_NEG(rc, configure_mqtt_session(options->cleansession));
     RETURN_RC_IF_NEG(rc, configure_mqtt_keepalive(options->keepalive));
     RETURN_RC_IF_NEG(rc, configure_mqtt_sslenable(options->sslenable));
+    _ctx.options = options;
     return NSAPI_ERROR_OK;
 }
 
@@ -161,6 +197,17 @@ nsapi_error_t BG96MQTTClient::connect(MQTTConnect_Ctx* ctx)
             printf("BG96MQTTClient: Connect error. Protocol not accepted.\r\n");
 #endif
             break;
+        case BG96_MQTT_CLIENT_CONNECT_ERROR_AT_CMD_TIMEOUT:
+            rc = NSAPI_ERROR_DEVICE_ERROR;
+#if defined(MQTT_DEBUG)
+            printf("BG96MQTTClient: Connect error. AT command timed out.\r\n");
+#endif       
+            break;
+        default:
+#if defined(MQTT_DEBUG)
+            printf("BG96MQTTClient: Connect error (%d)\r\n", result.rc);
+#endif
+            rc =-1 ;     
     }
     return rc;
 }
