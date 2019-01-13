@@ -46,6 +46,17 @@
 #define none        "none"
 #define usbnmea     "usbnmea"
 #define uartnmea    "uartnmea"
+
+#define BG96_1s_WAIT            1000   //will wait for 1 second for startup
+#define BG96_60s_TO             60000  //wait 60 seconds
+#define BG96_150s_TO            150000 //wait 150s (2.5 mins)
+#define BG96_TX_TIMEOUT         2000   //time before a TX timeout occurs
+#define BG96_RX_TIMEOUT         1000   //time before a TX timeout occurs
+#define BG96_WAIT4READY         15000  //wait 15 seconds for 'RDY' after reset
+#define BG96_AT_TIMEOUT         1000   //standard AT command timeout
+#define BG96_WRK_CONTEXT        1      //we will only use context 1 in driver
+#define BG96_CLOSE_TO           1      //wait x seconds for a socket close
+#define BG96_MISC_TIMEOUT       1000
  
 // If target board does not support Arduino pins, define pins as Not Connected
 #if defined(TARGET_FF_ARDUINO)

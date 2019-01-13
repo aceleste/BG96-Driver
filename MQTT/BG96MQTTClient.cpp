@@ -10,9 +10,9 @@ BG96MQTTClient::BG96MQTTClient(BG96* bg96, BG96TLSSocket* tls)
 {
     _bg96 = bg96;
     _tls  = tls;
-    _ctx.pdp_ctx  = DEFAULT_PDP;
-    _ctx.ssl_ctx  = 0;
-    _ctx.mqtt_ctx = 0;
+    _ctx.pdp_ctx_id  = DEFAULT_PDP;
+    _ctx.ssl_ctx_id  = 0;
+    _ctx.mqtt_ctx_id = 0;
 }
 
 BG96MQTTClient::~BG96MQTTClient()
@@ -39,15 +39,15 @@ nsapi_error_t BG96MQTTClient::open(MQTTNetwork_Ctx* network_ctx)
     }
 
 
-    if (!_bg96.isConnected()) _bg96.connect(_ctx.pdp_ctx); //Check is needed or 
+    //if (!_bg96->isConnected()) _bg96->connect(_ctx.pdp_ctx_id); //Check is needed or 
 
-    _bg96.mqtt_open(network_ctx->hostname.payload, network_ctx->port); 
+    _bg96->mqtt_open(network_ctx->hostname.payload, network_ctx->port); 
     
 }
 
 nsapi_error_t BG96MQTTClient::close()
 {
-    return _bg96.mqtt_close();
+    return _bg96->mqtt_close();
 }
 
 nsapi_error_t BG96MQTTClient::configure_mqtt(MQTTClientOptions* options)
@@ -56,7 +56,7 @@ nsapi_error_t BG96MQTTClient::configure_mqtt(MQTTClientOptions* options)
     if (options == NULL) return NSAPI_ERROR_DEVICE_ERROR;
     RETURN_RC_IF_NEG(rc, configure_mqtt_version(options->version));
     RETURN_RC_IF_NEG(rc, configure_mqtt_pdpcid(_ctx.pdp_ctx_id)); //TODO: replace value par MACRO in every place where pdp id is required
-    RETURN_RC_IF_NEG(rc, cconfigure_mqtt_will(options->will_fg,
+    RETURN_RC_IF_NEG(rc, configure_mqtt_will(options->will_fg,
                                              options->will_qos,
                                              options->will_retain,
                                              options->will_topic.payload,
@@ -66,22 +66,22 @@ nsapi_error_t BG96MQTTClient::configure_mqtt(MQTTClientOptions* options)
                                                 options->timeout_notice));
     RETURN_RC_IF_NEG(rc, configure_mqtt_session(options->cleansession));
     RETURN_RC_IF_NEG(rc, configure_mqtt_keepalive(options->keepalive));
-    RETURN_RC_IF_NET(rc, configure_mqtt_sslenable(options->sslenable));
+    RETURN_RC_IF_NEG(rc, configure_mqtt_sslenable(options->sslenable));
     return NSAPI_ERROR_OK;
 }
 
 nsapi_error_t BG96MQTTClient::configure_mqtt_version(int version)
 {
     char cmd[80];
-    sprintf(cmd, "AT+QMTCFG=\"version\",%d,%d",_ctx->mqtt_ctx_id,version, BG96_AT_TIMEOUT);
-    return _bg96->send_generic_cmd(cmd);
+    sprintf(cmd, "AT+QMTCFG=\"version\",%d,%d",_ctx.mqtt_ctx_id,version);
+    return _bg96->send_generic_cmd(cmd, BG96_AT_TIMEOUT);
 }
 
 nsapi_error_t BG96MQTTClient::configure_mqtt_pdpcid(int pdp_id)
 {
     char cmd[80];
-    sprintf(cmd, "AT+QMTCFG=\"pdpcid\",%d,%d",_ctx->mqtt_ctx_id, pdp_id, BG96_AT_TIMEOUT);
-    return _bg96->send_generic_cmd(cmd);
+    sprintf(cmd, "AT+QMTCFG=\"pdpcid\",%d,%d",_ctx.mqtt_ctx_id, pdp_id);
+    return _bg96->send_generic_cmd(cmd, BG96_AT_TIMEOUT);
 }
 
 nsapi_error_t BG96MQTTClient::configure_mqtt_will(  int will_fg,
@@ -91,40 +91,40 @@ nsapi_error_t BG96MQTTClient::configure_mqtt_will(  int will_fg,
                                                     const char* will_msg)
 {
     char cmd[256];
-    sprintf(cmd, "AT+QMTCFG=\"will\",%d,%d,%d,%d,%s,%s",_ctx->mqtt_ctx_id, will_fg,
+    sprintf(cmd, "AT+QMTCFG=\"will\",%d,%d,%d,%d,%s,%s",_ctx.mqtt_ctx_id, will_fg,
                                                                           will_qos,
                                                                           will_retain,
                                                                           will_topic,
-                                                                          will_msg, BG96_AT_TIMEOUT);
-    return _bg96->send_generic_cmd(cmd);
+                                                                          will_msg);
+    return _bg96->send_generic_cmd(cmd, BG96_AT_TIMEOUT);
 }
 
 nsapi_error_t BG96MQTTClient::configure_mqtt_timeout(int timeout, int retries,int timeout_notice)
 {
     char cmd[80];
-    sprintf(cmd, "AT+QMTCFG=\"timeout\",%d,%d,%d,%d",_ctx->mqtt_ctx_id, timeout, retries, timeout_notice, BG96_AT_TIMEOUT);
-    return _bg96->send_generic_cmd(cmd);
+    sprintf(cmd, "AT+QMTCFG=\"timeout\",%d,%d,%d,%d",_ctx.mqtt_ctx_id, timeout, retries, timeout_notice);
+    return _bg96->send_generic_cmd(cmd, BG96_AT_TIMEOUT);
 }
 
 nsapi_error_t BG96MQTTClient::configure_mqtt_session(int cleansession)
 {
     char cmd[80];
-    sprintf(cmd, "AT+QMTCFG=\"session\",%d,%d",_ctx->mqtt_ctx_id, cleansession, BG96_AT_TIMEOUT);
-    return _bg96->send_generic_cmd(cmd);
+    sprintf(cmd, "AT+QMTCFG=\"session\",%d,%d",_ctx.mqtt_ctx_id, cleansession);
+    return _bg96->send_generic_cmd(cmd, BG96_AT_TIMEOUT);
 }
 
 nsapi_error_t BG96MQTTClient::configure_mqtt_keepalive(int keepalive)
 {
     char cmd[80];
-    sprintf(cmd, "AT+QMTCFG=\"keepalive\",%d,%d",_ctx->mqtt_ctx_id, keepalive, BG96_AT_TIMEOUT);
-    return _bg96->send_generic_cmd(cmd);
+    sprintf(cmd, "AT+QMTCFG=\"keepalive\",%d,%d",_ctx.mqtt_ctx_id, keepalive);
+    return _bg96->send_generic_cmd(cmd, BG96_AT_TIMEOUT);
 }
 
 nsapi_error_t BG96MQTTClient::configure_mqtt_sslenable(int sslenable)
 {
     char cmd[80];
-    sprintf(cmd, "AT+QMTCFG=\"ssl\",%d,%d,%d", _ctx->mqtt_ctx_id, sslenable, _ctx.ssl_ctx_id, BG96_AT_TIMEOUT);
-    return _bg96->send_generic_cmd(cmd);
+    sprintf(cmd, "AT+QMTCFG=\"ssl\",%d,%d,%d", _ctx.mqtt_ctx_id, sslenable, _ctx.ssl_ctx_id);
+    return _bg96->send_generic_cmd(cmd, BG96_AT_TIMEOUT);
 }
 
 nsapi_error_t BG96MQTTClient::connect(MQTTConnect_Ctx* ctx)
@@ -165,7 +165,7 @@ nsapi_error_t BG96MQTTClient::connect(MQTTConnect_Ctx* ctx)
     return rc;
 }
 
-nsapi_error_t disconnect()
+nsapi_error_t BG96MQTTClient::disconnect()
 {
    return _bg96->mqtt_disconnect(_ctx.mqtt_ctx_id);
 }

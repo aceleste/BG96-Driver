@@ -44,15 +44,6 @@ typedef struct
 } MQTTNetwork_Ctx;
 
 typedef struct {
-    int pdp_ctx_id;
-    int ssl_ctx_id;
-    int mqtt_ctx_id;
-    MQTTClientOptions* options;
-} MQTTClient_Ctx;
-
-#define BG96MQTTClientOptions_Initializer {4,120,5,0,3,0,0,0,{NULL,0},{NULL,0},1,1}
-
-typedef struct {
     int version; // 3 -> 3.1; 4 -> 3.1.1
     int keepalive;
     int timeout;
@@ -66,6 +57,17 @@ typedef struct {
     int cleansession;
     int sslenable;
 } MQTTClientOptions;
+
+typedef struct {
+    int pdp_ctx_id;
+    int ssl_ctx_id;
+    int mqtt_ctx_id;
+    MQTTClientOptions* options;
+} MQTTClient_Ctx;
+
+#define BG96MQTTClientOptions_Initializer {4,120,5,0,3,0,0,0,{NULL,0},{NULL,0},1,1}
+
+
 
 typedef struct {
     MQTTString  topic;
@@ -105,7 +107,7 @@ public:
                                             int will_retain,
                                             const char* will_topic,
                                             const char* will_msg);
-    nsapi_error_t       configure_mqtt_timeout(int timeout);
+    nsapi_error_t       configure_mqtt_timeout(int timeout, int retries, int timeout_notice);
     nsapi_error_t       configure_mqtt_session(int cleansession);
     nsapi_error_t       configure_mqtt_keepalive(int keepalive);
     nsapi_error_t       configure_mqtt_sslenable(int sslenable);
@@ -120,13 +122,13 @@ public:
 
 
 
-    nsapi_error_t       subscribe(const char* topic) {};
-    nsapi_error_t       unsuscribe(const char* topic) {};
-    nsapi_error_t       publish(MQTTMessage* message) {};
+    nsapi_error_t       subscribe(const char* topic) {return -1;};
+    nsapi_error_t       unsuscribe(const char* topic) {return -1;};
+    nsapi_error_t       publish(MQTTMessage* message) {return -1;};
     void                dowork() {};
 protected:
-    MQTTSubscription*   get_default_subscription(MQTTMessageHandler handler) {};
-    bool                append_subscription(MQTTSubscription* sublist, MQTTSubscription* newsub) {};
+    MQTTSubscription*   get_default_subscription(MQTTMessageHandler handler) {return NULL;};
+    bool                append_subscription(MQTTSubscription* sublist, MQTTSubscription* newsub) {return false;};
 private:
     void                mqtt_task() {};
 
