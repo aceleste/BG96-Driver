@@ -43,7 +43,7 @@
 #include "BG96TLSSocket.h"
 #include "BG96MQTTClient.h"
 
-#define APN_DEFAULT          "m2m.com.attz"
+//#define APN_DEFAULT          "m2m.com.attz"
 #define BG96_MISC_TIMEOUT    15000
 #define BG96_SOCKET_COUNT    5
 

@@ -29,24 +29,24 @@ public:
     nsapi_error_t   close();
 
 private:
-    int set_cert_pem(const char * client_cert_pem);
-    int set_privkey_pem(const char * client_private_key_pem);
-    int configure_cacert_path(const char* path);
-    int configure_client_cert_path(const char* path);
-    int configure_privkey_path(const char* path);
-    int configure_sslversion(int version);
+    int     set_cert_pem(const char * client_cert_pem);
+    int     set_privkey_pem(const char * client_private_key_pem);
+    int     configure_cacert_path(const char* path);
+    int     configure_client_cert_path(const char* path);
+    int     configure_privkey_path(const char* path);
+    int     configure_sslversion(int version);
 //    nsapi_error_t configure_ciphersuite(BG96TLSSocket_cipher_suite_t suite);
-    int configure_seclevel(int seclevel);
-    int configure_ignorelocaltime(bool ignorelocaltime);
-    int configure_negotiatetime(int negotiatetime);
+    int     configure_seclevel(int seclevel);
+    int     configure_ignorelocaltime(bool ignorelocaltime);
+    int     configure_negotiatetime(int negotiatetime);
 
 
-    BG96* bg96;
-    int sslctx_id;
-    int client_id;
-    int pdp_ctx;
-    int timeout;
-    bool timeout_ovf;
+    BG96*   bg96;
+    int     sslctx_id;
+    int     client_id;
+    int     pdp_ctx;
+    int     timeout;
+    bool    timeout_ovf;
 };
 
 #endif //__BG96TLSSOCKET_H__

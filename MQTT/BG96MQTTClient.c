@@ -3,8 +3,8 @@
 #include "BG96TLSSocket.h"
 #include "nsapi_types.h"
 
-#define RETURN_RC_IF_NEG(A,B) { A = B; \
-                                if (A < 0) return A; }
+#define RETURN_RC_IF_NEG(A,B)   A = B; \
+                                if (A < 0) return A
 
 BG96MQTTClient::BG96MQTTClient(BG96* bg96, BG96TLSSocket* tls)
 {
@@ -124,7 +124,7 @@ nsapi_error_t BG96MQTTClient::configure_mqtt_sslenable(int sslenable)
 {
     char cmd[80];
     sprintf(cmd, "AT+QMTCFG=\"ssl\",%d,%d,%d", _ctx->mqtt_ctx_id, sslenable, _ctx.ssl_ctx_id, BG96_AT_TIMEOUT);
-    return _bg96->send_generic_cmd(cmd);   
+    return _bg96->send_generic_cmd(cmd);
 }
 
 nsapi_error_t BG96MQTTClient::connect(MQTTConnect_Ctx* ctx)
@@ -165,7 +165,7 @@ nsapi_error_t BG96MQTTClient::connect(MQTTConnect_Ctx* ctx)
     return rc;
 }
 
-nsapi_error_t disconnect() 
+nsapi_error_t disconnect()
 {
    return _bg96->mqtt_disconnect(_ctx.mqtt_ctx_id);
 }

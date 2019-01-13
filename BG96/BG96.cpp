@@ -317,7 +317,7 @@ nsapi_error_t BG96::connect(const char *apn, const char *username, const char *p
     _bg96_mutex.unlock();
 
 	//activate PDP context 1 ...	
-    return connect(1);
+    return connect(_contextID);
 }
 
 nsapi_error_t BG96::connect(int pdp_id)
@@ -512,7 +512,7 @@ bool BG96::open(const char type, int id, const char* addr, int port)
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
     if( ok )
-        while( recv(id, cmd, sizeof(cmd)) ) 
+        while( recv(id, cmd, sizeof(cmd)) )
             /* clear out any residual data in BG96 buffer */;
 
     return ok;
@@ -1084,7 +1084,7 @@ int BG96::mqtt_close()
     {
         _parser.recv("+QMTCLOSE: %d,%d\r\n", &id, &rc);
     } else {
-        rc = NSAPI_ERROR_TIMEOUT
+        rc = NSAPI_ERROR_TIMEOUT;
     }
     _bg96_mutex.unlock();
     return rc;

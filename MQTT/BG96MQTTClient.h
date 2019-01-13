@@ -40,13 +40,13 @@ typedef struct
     int port;
     MQTTString ca_cert;
     MQTTString client_cert;
-    MQTTString client_key; 
+    MQTTString client_key;
 } MQTTNetwork_Ctx;
 
 typedef struct {
     int pdp_ctx_id;
     int ssl_ctx_id;
-    int mqtt_ctx_id;    
+    int mqtt_ctx_id;
     MQTTClientOptions* options;
 } MQTTClient_Ctx;
 
@@ -88,53 +88,52 @@ public:
     BG96MQTTClient(BG96* bg96, BG96TLSSocket* tls);
     ~BG96MQTTClient();
 
-    /** Open a network socket 
+    /** Open a network socket
      *
      *  @param          char* [at least 40 long]
      */
     nsapi_error_t       open(MQTTNetwork_Ctx* network_ctx);
-    
+
     nsapi_error_t       close();
 
     nsapi_error_t       configure_pdp_context(BG96_PDP_Ctx* pdp_ctx);
     nsapi_error_t       configure_mqtt(MQTTClientOptions* options);
     nsapi_error_t       configure_mqtt_version(int version);
     nsapi_error_t       configure_mqtt_pdpcid(int version);
-    nsapi_error_t       configure_mqtt_will(int will_fg, 
-                                            int will_qos, 
-                                            int will_retain, 
-                                            const char* will_topic, 
+    nsapi_error_t       configure_mqtt_will(int will_fg,
+                                            int will_qos,
+                                            int will_retain,
+                                            const char* will_topic,
                                             const char* will_msg);
     nsapi_error_t       configure_mqtt_timeout(int timeout);
     nsapi_error_t       configure_mqtt_session(int cleansession);
     nsapi_error_t       configure_mqtt_keepalive(int keepalive);
     nsapi_error_t       configure_mqtt_sslenable(int sslenable);
 
-    void                get_mqtt_cfg(MQTTClientOptions &options);
+//    void                get_mqtt_cfg(MQTTClientOptions &options);
 
 // MQTT Connection to Server/Broker
-    MQTTConnect_Ctx*    get_default_connect();           //memset connect struct here
+//    MQTTConnect_Ctx*    get_default_connect();           //memset connect struct here
     nsapi_error_t       connect(MQTTConnect_Ctx* data);
-    MQTTCONNECTSTATE    get_connect_state();
+//    MQTTCONNECTSTATE    get_connect_state();
     nsapi_error_t       disconnect();                    //free connect struct here
 
 
 
-    nsapi_error_t       subscribe(const char* topic);
-    nsapi_error_t       unsuscribe(const char* topic);
-    nsapi_error_t       publish(MQTTMessage* message);
-    void                dowork();
+    nsapi_error_t       subscribe(const char* topic) {};
+    nsapi_error_t       unsuscribe(const char* topic) {};
+    nsapi_error_t       publish(MQTTMessage* message) {};
+    void                dowork() {};
 protected:
-    MQTTSubscription*   get_default_subscription(MQTTMessageHandler handler);
-    bool                append_subscription(MQTTSubscription* sublist, MQTTSubscription* newsub);
+    MQTTSubscription*   get_default_subscription(MQTTMessageHandler handler) {};
+    bool                append_subscription(MQTTSubscription* sublist, MQTTSubscription* newsub) {};
 private:
-    void            mqtt_task();
+    void                mqtt_task() {};
 
-    Thread          _mqtt_thread;
-    BG96*           _bg96;
-    BG96TLSSocket   _tls;
-    MQTTClient_Ctx  _ctx;
-    NSAPI
+//    Thread          _mqtt_thread;
+    BG96*               _bg96;
+    BG96TLSSocket*      _tls;
+    MQTTClient_Ctx      _ctx;
 };
 
 #endif //__BG96_MQTT_CLIENT_H__

@@ -360,10 +360,6 @@ public:
 
     bool       ssl_client_status(int client_id);
 
-    // int         sslrecv();
-
-    // int         sslclose();
-
     int         mqtt_open(const char* hostname, int port);
     int         mqtt_close();
     int         mqtt_connect(int sslctx_id, const char* clientid, 
