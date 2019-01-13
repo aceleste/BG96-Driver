@@ -31,6 +31,8 @@
 #include <ctype.h>
 #include "mbed.h"
 #include "BG96.h"
+#include "BG96TLSSocket.h"
+#include "BG96MQTTClient.h"
 #include "BG96Interface.h"
 #include "GNSSLoc.h"
 #include "GNSSInterface.h"
@@ -62,7 +64,7 @@
 #define EVENT_GETMORE          0x01                     //signals when we need additional TX/RX data
 
 #ifndef DEFAULT_APN
-#define DEFAULT_APN            "m2m.com.attz"
+#define DEFAULT_APN            "m2m.tele2.com"
 #endif
 
 //
@@ -1012,3 +1014,9 @@ BG96TLSSocket * BG96Interface::getBG96TLSSocket()
     BG96TLSSocket * socket = new BG96TLSSocket(bg96);
 }
 
+BG96MQTTClient * BG96Interface::getBG96MQTTClient(BG96TLSSocket* tls)
+{
+    BG96* bg96 = &_BG96;
+    if (tls == NULL) tls = getBG96TLSSocket();
+    BG96MQTTClient * mqtt = new BG96MQTTClient(bg96, tls);
+}

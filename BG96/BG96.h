@@ -35,6 +35,14 @@
 #include "mbed.h"
 #include "GNSSLoc.h"
 
+#ifndef DEFAULT_APN
+#define DEFAULT_APN "m2m.tele2.com"
+#endif
+
+#ifndef DEFAULT_PDP
+#define DEFAULT_PDP 1
+#endif
+
 #define none        "none"
 #define usbnmea     "usbnmea"
 #define uartnmea    "uartnmea"
@@ -112,6 +120,18 @@
 #define MBED_CONF_BG96_LIBRARY_BG96_GNSS_FIXRATE                  10
 #endif
 
+typedef struct {
+    int result;
+    int rc;
+} ConnectResult;
+
+typedef struct {
+    int pdp_id;
+    char* apn;
+    char* username;
+    char* password;
+} BG96_PDP_Ctx;
+
 /** BG96Interface class.
     Interface to a BG96 module.
  */
@@ -156,6 +176,14 @@ public:
     */
     nsapi_error_t connect(const char *apn, const char *username, const char *password);
  
+    /**
+    * Connect BG96 to APN
+    *
+    * @param id of configured pdp context
+    * @return nsapi_error_t
+    */
+    nsapi_error_t connect(int pdp_id);
+
     /**
     * Disconnect BG96 from AP
     *
@@ -222,6 +250,8 @@ public:
     * @return the number of bytes received
     */
     int32_t recv(int, void *, uint32_t);
+
+    
  
     /**
     * Closes a socket
@@ -250,6 +280,10 @@ public:
     * Obtain or set the current BG96 active context
     */
     int setContext( int i );
+    /*
+    * Configure PDP Context
+    */
+    int configure_pdp_context(BG96_PDP_Ctx * pdp_ctx);
     
     /*
     * enable/disable AT command tracing
@@ -302,6 +336,8 @@ public:
      */
     GNSSLoc*    getGNSSLoc();
 
+    int         send_generic_cmd(const char* cmd, int timeout);
+
     int         send_file(const char* content, const char* filename, bool overrideok);
 
     int         configure_cacert_path(const char* path, int sslctx_id);
@@ -327,6 +363,14 @@ public:
     // int         sslrecv();
 
     // int         sslclose();
+
+    int         mqtt_open(const char* hostname, int port);
+    int         mqtt_close();
+    int         mqtt_connect(int sslctx_id, const char* clientid, 
+                                            const char* username, 
+                                            const char* password,
+                                            ConnectResult &result);
+    int         mqtt_disconnect(int mqtt_id);
 
 private:
     bool        tx2bg96(char* cmd);

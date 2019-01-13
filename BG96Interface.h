@@ -41,6 +41,7 @@
 #include "GNSSLoc.h"
 #include "GNSSInterface.h"
 #include "BG96TLSSocket.h"
+#include "BG96MQTTClient.h"
 
 #define APN_DEFAULT          "m2m.com.attz"
 #define BG96_MISC_TIMEOUT    15000
@@ -77,7 +78,6 @@ typedef struct tx_event_t {
     void    (*m_tx_callback)(void*);
     void     *m_tx_cb_data;
     } TXEVENT;
-
 
 /** BG96_socket class
  *  Implementation of BG96 socket structure
@@ -182,6 +182,8 @@ public:
     void initializeGNSS(void);
 
     BG96TLSSocket * getBG96TLSSocket();
+
+    BG96MQTTClient* getBG96MQTTClient(BG96TLSSocket* tls);
 
 protected:
 

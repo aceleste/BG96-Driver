@@ -34,6 +34,7 @@
 #include "mbed_debug.h"
 #include "BG96.h"
 #include "GNSSLoc.h"
+#include "nsapi_types.h"
 
 #define BG96_1s_WAIT            1000   //will wait for 1 second for startup
 #define BG96_60s_TO             60000  //wait 60 seconds
@@ -45,6 +46,10 @@
 #define BG96_WRK_CONTEXT        1      //we will only use context 1 in driver
 #define BG96_CLOSE_TO           1      //wait x seconds for a socket close
 #define BG96_MISC_TIMEOUT       1000
+
+#ifndef DEFAULT_PDP
+#define DEFAULT_PDP 1
+#endif
 
 //
 // if DEBUG is enabled, these macros are used to dump data arrays
@@ -82,7 +87,7 @@
 * @retval none
 */
 BG96::BG96(bool debug) :  
-    _contextID(1), 
+    _contextID(DEFAULT_PDP), 
     _serial(MBED_CONF_BG96_LIBRARY_BG96_TX, MBED_CONF_BG96_LIBRARY_BG96_RX), 
     _parser(&_serial),
     _bg96_reset(MBED_CONF_BG96_LIBRARY_BG96_RESET),
@@ -167,6 +172,29 @@ int BG96::setContext( int i )
 }
 
 /** ----------------------------------------------------------
+* @brief  Configure the context for the BG96. This context will
+*         be used for all subsequent operations
+* @param  BG96_PDP_Ctx PDP Configuration
+* @retval Context id if success | -1 if error
+*/
+/*
+* Context can be 1-16
+*/
+int BG96::configure_pdp_context(BG96_PDP_Ctx * pdp_ctx)
+{
+    int rc=-1;
+    if (pdp_ctx == NULL) return -1;
+    setContext(pdp_ctx->pdp_id);
+    _bg96_mutex.lock();
+    if (_parser.send("AT+QICSGP=%d,1,%s,%s,%s", pdp_ctx->pdp_id,
+                                            pdp_ctx->apn,
+                                            pdp_ctx->username,
+                                            pdp_ctx->password) && _parser.recv("OK")) rc = pdp_ctx->pdp_id;
+    _bg96_mutex.unlock();
+    return rc;
+}
+
+/** ----------------------------------------------------------
 * @brief  perform a HW reset of the BG96
 * @param  none
 * @retval none
@@ -244,14 +272,13 @@ nsapi_error_t BG96::connect(const char *apn, const char *username, const char *p
     char pdp_string[100];
     int i = 0;
 	char* search_pt;
-    Timer timer_s;
 //	uint32_t time;
 //	int pdp_retry = 0;
 	
     _bg96_mutex.lock();
     memset(pdp_string, 0, sizeof(pdp_string));
 	printf("Checking APN ...\r\n");
-	_parser.send("AT+QICSGP=1");
+	_parser.send("AT+QICSGP=%d",_contextID);
 	while(1){
 			//read and store answer
 		_parser.read(&pdp_string[i], 1);
@@ -279,7 +306,7 @@ nsapi_error_t BG96::connect(const char *apn, const char *username, const char *p
 		printf("Storing APN %s ...\r\n", apn);
 		//program APN and connection parameter only for PDP context 1, authentication NONE
 		//TODO: add program for other context
-		if (!(_parser.send("AT+QICSGP=1,1,\"%s\",\"%s\",\"%s\",0", &apn[0], &username[0], &password[0])
+		if (!(_parser.send("AT+QICSGP=%d,1,\"%s\",\"%s\",\"%s\",0", _contextID, &apn[0], &username[0], &password[0])
         && _parser.recv("OK"))) 
 		{
 			return NSAPI_ERROR_DEVICE_ERROR;
@@ -287,86 +314,26 @@ nsapi_error_t BG96::connect(const char *apn, const char *username, const char *p
 	}
     wait(1);
 	printf("End APN check\r\n\n");
-		
-	//activate PDP context 1 ...
+    _bg96_mutex.unlock();
+
+	//activate PDP context 1 ...	
+    return connect(1);
+}
+
+nsapi_error_t BG96::connect(int pdp_id)
+{
+    Timer timer_s;
     char cmd[100];
     printf("PDP activating ...\r\n");
-    sprintf(cmd,"AT+QIACT=%d", 1);
+    sprintf(cmd,"AT+QIACT=%d", _contextID);
+    _bg96_mutex.lock();
     timer_s.reset();
     bool done=false;
     while( !done && timer_s.read_ms() < BG96_150s_TO ) 
         done = tx2bg96(cmd);
     if (done) printf("PDP started\r\n\n");
     _bg96_mutex.unlock();
-	// int a = 1;
-	// while(a==1)
-	// {
-	// 	_parser.send("AT+QIACT=1");
-	// 	timer_s.reset();
-	// 	timer_s.start();
-	// 	while (1)
-	// 	{
-	// 		if (_parser.recv("OK")){
-	// 			a=0;
-	// 			break;
-	// 		}
-						
-	// 		time = timer_s.read_ms();
-	// 		uint32_t end_time = (BG96_MISC_TIMEOUT*(5+(pdp_retry*3)));
-	// 		if (time > end_time) 
-	// 		{
-	// 			pdp_retry++;
-	// 			if (pdp_retry > 3)
-	// 			{
-	// 				return NSAPI_ERROR_DEVICE_ERROR;
-	// 			}
-	// 			break;
-	// 		}
-	// 	}		
-	// }
-	
     return done ? NSAPI_ERROR_OK:NSAPI_ERROR_DEVICE_ERROR;
-
-    // char cmd[100],_apn[50];
-    // bool done = false;
-    // Timer t;
-    // int   cntx;
-    
-    // _bg96_mutex.lock();
-    // t.start();
-    // do {
-    //     _parser.send("AT+QICSGP=%d",_contextID);
-    //     done = _parser.recv("+QICSGP: %d,\"%50[^\"]\"",&cntx, _apn);
-    //     printf("[BG96]: APN to find is %s.\r\n", apn);
-    //     printf("[BG96]: Found %s APN in PDP context.\r\n", _apn);
-    //     wait_ms(2);
-    //     }
-    // while( !done && t.read_ms() < BG96_60s_TO );
-
-    // if( !done ) {
-    //     _bg96_mutex.unlock();
-    //     return NSAPI_ERROR_DEVICE_ERROR;
-    //     }
-
-    // _parser.flush();    
-    // if( strcmp(_apn,apn) == 0 ) {
-    //     printf("[BG96]: APN of PDP context is correct.\r\n");
-    //     sprintf(cmd,"AT+QICSGP=%d,1,\"%s\",\"%s\",\"%s\",0", _contextID, &apn[0], &username[0], &password[0]);
-    //     if( !tx2bg96(cmd) )  {
-    //         _bg96_mutex.unlock();
-    //         return NSAPI_ERROR_DEVICE_ERROR;
-    //         }
-    //     }
-
-    // sprintf(cmd,"AT+QIACT=%d", _contextID);
-    // t.reset();
-    // done=false;
-    // while( !done && t.read_ms() < BG96_150s_TO ) 
-    //     done = tx2bg96(cmd);
-
-    // _bg96_mutex.unlock();
-    
-    // return done? NSAPI_ERROR_OK : NSAPI_ERROR_DEVICE_ERROR;
 }
 
 /** ----------------------------------------------------------
@@ -1085,4 +1052,93 @@ bool BG96::sslclose(int client_id)
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
     return done;
+}
+
+int BG96::mqtt_open(const char* hostname, int port)
+{
+    int id=-1;
+    int rc=-1;
+    char cmd[80];
+
+    sprintf(cmd, "AT+QMTOPEN=%d,\"%s\",%d", 0, hostname, &port);
+
+    _bg96_mutex.lock();
+    _parser.set_timeout(BG96_60s_TO);
+    if (_parser.send(cmd) && _parser.recv("OK")) {
+        _parser.recv("+QMTOPEN: %d,%d\r\n", &id, &rc);
+    } else {
+        rc = NSAPI_ERROR_TIMEOUT; 
+    }
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return rc;
+}
+
+int BG96::mqtt_close()
+{
+    int id = -1;
+    int rc=-1;
+
+    _bg96_mutex.lock();
+    if(_parser.send("AT+QMTCLOSE=0") && _parser.recv("OK"))
+    {
+        _parser.recv("+QMTCLOSE: %d,%d\r\n", &id, &rc);
+    } else {
+        rc = NSAPI_ERROR_TIMEOUT
+    }
+    _bg96_mutex.unlock();
+    return rc;
+}
+
+int BG96::send_generic_cmd(const char* cmd, int timeout)
+{
+    char res[80];
+    int rc=-NSAPI_ERROR_DEVICE_ERROR;
+    int err=0;
+    if (cmd == NULL) return NSAPI_ERROR_PARAMETER;
+    _bg96_mutex.lock();
+    _parser.set_timeout(timeout);
+    if (_parser.send(cmd)) _parser.recv("%[^\\r]", res);
+    if (strcmp(res,"OK") == 0) rc = NSAPI_ERROR_OK;
+    if (sscanf(res,"+CME ERROR:%d", &err) > 0) rc=err;
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return rc;
+}
+
+int BG96::mqtt_connect(int sslctx_id, const char* clientid,
+                                      const char* username,
+                                      const char* password,
+                                      ConnectResult &result)
+{
+    char cmd[256];
+    char res[20];
+    char rest[20];
+    memset(res, 0, 20);
+
+    int id=-1;
+    int rc=-1;
+    int err=-1;
+
+    sprintf(cmd, "AT+QMTCONN=%d,%s,%s,%s", sslctx_id, clientid, username, password);
+    _bg96_mutex.lock();
+    _parser.set_timeout(5000);
+    if (_parser.send(cmd)) _parser.recv("%[^\\r]", res);
+    if (strcmp(res,"0K")==0) {
+        _parser.recv("+QMTCONN: %d, %[^\\r]", &id, rest);
+        if (scanf(rest, "%d,%d", &(result.result), &(result.rc)) < 2) rc = result.result;
+    } 
+    if (scanf(res, "+CME ERROR: %d", &err)) rc = err;
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return rc;    
+}
+
+int BG96::mqtt_disconnect(int mqtt_id)
+{
+    int rc=-1;
+    _bg96_mutex.lock();
+    if (_parser.send("AT+QMTDISC=%d", mqtt_id) && _parser.recv("OK")) rc=NSAPI_ERROR_OK;
+    _bg96_mutex.unlock();
+    return rc;
 }
