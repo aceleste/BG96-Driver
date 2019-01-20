@@ -45,7 +45,7 @@ nsapi_error_t BG96MQTTClient::open(MQTTNetwork_Ctx* network_ctx)
     }
 
 
-    //if (!_bg96->isConnected()) _bg96->connect(_ctx.pdp_ctx_id); //Check is needed or 
+    // if (!_bg96->isConnected()) _bg96->connect(_ctx.pdp_ctx_id); //Check is needed or 
 
     rc = _bg96->mqtt_open(network_ctx->hostname.payload, network_ctx->port); 
     switch(rc) {

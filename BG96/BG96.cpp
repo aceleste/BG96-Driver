@@ -240,6 +240,7 @@ bool BG96::startup(void)
     _parser.set_timeout(BG96_1s_WAIT);
     if( tx2bg96((char*)"ATE0") )
         done = tx2bg96((char*)"AT+COPS?");
+        done = tx2bg96("ATI"); // request product info
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
     if (done) { 
@@ -321,6 +322,8 @@ nsapi_error_t BG96::connect(int pdp_id)
     while( !done && timer_s.read_ms() < BG96_150s_TO ) 
         done = tx2bg96(cmd);
     if (done) printf("PDP started\r\n\n");
+    //wait(5);
+    //tx2bg96("AT+QNWINFO");
     _bg96_mutex.unlock();
     return done ? NSAPI_ERROR_OK:NSAPI_ERROR_DEVICE_ERROR;
 }
