@@ -155,7 +155,9 @@ nsapi_error_t BG96TLSSocket::connect(const char* hostname, int port)
         rc = NSAPI_ERROR_OK;
         printf("\r\n\r\n\r\nBG96TLSSocket: Successfully opened TLS connection to %s\r\n", hostname);
     } else {
-        printf("BG96TLSSocket: Error opening TLS Socket\r\n");
+        char errstring[80];
+        bg96->getError(errstring);
+        printf("BG96TLSSocket %s opening TLS Socket\r\n", errstring);
         rc = NSAPI_ERROR_DEVICE_ERROR;
     }
     return rc;

@@ -142,6 +142,7 @@ private:
     BG96*               _bg96;
     BG96TLSSocket*      _tls;
     MQTTClient_Ctx      _ctx;
+    MQTTSubscription*   _sublist;
 };
 
 #endif //__BG96_MQTT_CLIENT_H__

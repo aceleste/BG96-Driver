@@ -14,6 +14,7 @@ BG96MQTTClient::BG96MQTTClient(BG96* bg96, BG96TLSSocket* tls)
     _ctx.pdp_ctx_id  = DEFAULT_PDP;
     _ctx.ssl_ctx_id  = 2;
     _ctx.mqtt_ctx_id = 0;
+    _sublist = NULL;
 }
 
 BG96MQTTClient::~BG96MQTTClient()
@@ -222,4 +223,11 @@ nsapi_error_t BG96MQTTClient::disconnect()
 {
    return _bg96->mqtt_disconnect(_ctx.mqtt_ctx_id);
 }
+
+// nsapi_error_t BG96MQTTClient::subscribe(MQTTSubscription* sub) {
+//     int rc=-1;
+//     if (!append_subscription(sub)) return NSAPI_ERROR_DEVICE_ERROR;
+//     rc = _bg96->mqtt_subscribe(sub);
+//     return rc
+// }
 

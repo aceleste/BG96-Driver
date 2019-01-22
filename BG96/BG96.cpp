@@ -175,10 +175,8 @@ int BG96::configure_pdp_context(BG96_PDP_Ctx * pdp_ctx)
     if (pdp_ctx == NULL) return -1;
     setContext(pdp_ctx->pdp_id);
     _bg96_mutex.lock();
-    if (_parser.send("AT+QICSGP=%d,1,\"%s\",\"%s\",\"%s\"", pdp_ctx->pdp_id,
-                                            pdp_ctx->apn,
-                                            pdp_ctx->username,
-                                            pdp_ctx->password) && _parser.recv("OK")) rc = pdp_ctx->pdp_id;
+    if (_parser.send("AT+QICSGP=%d,1,\"%s\",\"\",\"\"", pdp_ctx->pdp_id,
+                                            pdp_ctx->apn) && _parser.recv("OK")) rc = pdp_ctx->pdp_id; //pdp_ctx->username, pdp_ctx->password)
     _bg96_mutex.unlock();
     return rc;
 }
@@ -1168,3 +1166,5 @@ int BG96::mqtt_disconnect(int mqtt_id)
     _bg96_mutex.unlock();
     return rc;
 }
+
+
