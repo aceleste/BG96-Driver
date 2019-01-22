@@ -1151,7 +1151,7 @@ int BG96::mqtt_connect(int sslctx_id, const char* clientid,
         result.result = -1;
         return rc;
     } else {
-        _parser.recv("+QTCONN:%d,%d,%d", &id, &result.result, &result.rc);
+        _parser.recv("+QMTCONN:%d,%d,%d", &id, &result.result, &result.rc);
     }
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
