@@ -357,6 +357,8 @@ private:
     Mutex      gvupdate_mutex;                          //protect global variable updates
     Mutex      txrx_mutex;                              //protect RX/TX event queue activities
     BG96       _BG96;                                   //create the BG96 HW interface object
+    BG96TLSSocket* _tls;
+    BG96MQTTClient* _mqtt;
 
     #if MBED_CONF_APP_BG96_DEBUG == true
     Mutex      dbgout_mutex;

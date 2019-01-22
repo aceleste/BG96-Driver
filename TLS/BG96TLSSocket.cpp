@@ -66,8 +66,8 @@ nsapi_error_t BG96TLSSocket::set_cert_pem(const char * client_cert_pem)
         return rc;
     }
 
-    if ( bg96->send_file(client_cert_pem, "cert.pem", true) ) {
-        strcpy(cert_pem_filename, "cert.pem");
+    if ( bg96->send_file(client_cert_pem, "clientcert.pem", true) ) {
+        strcpy(cert_pem_filename, "clientcert.pem");
     } else {
         printf("BG96TLSSocket: Error transferring client certificate file to modem.\r\n");
         rc = NSAPI_ERROR_DEVICE_ERROR;

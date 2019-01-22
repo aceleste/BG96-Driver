@@ -10,8 +10,9 @@ BG96MQTTClient::BG96MQTTClient(BG96* bg96, BG96TLSSocket* tls)
 {
     _bg96 = bg96;
     _tls  = tls;
+    _tls->set_socket_id(2);
     _ctx.pdp_ctx_id  = DEFAULT_PDP;
-    _ctx.ssl_ctx_id  = 0;
+    _ctx.ssl_ctx_id  = 2;
     _ctx.mqtt_ctx_id = 0;
 }
 
@@ -49,6 +50,11 @@ nsapi_error_t BG96MQTTClient::open(MQTTNetwork_Ctx* network_ctx)
 
     rc = _bg96->mqtt_open(network_ctx->hostname.payload, network_ctx->port); 
     switch(rc) {
+        case 0:
+#if defined(MQTT_DEBUG)
+            printf("Successfully opened MQTT Socket to %s:%d\r\n", network_ctx->hostname.payload, network_ctx->port);
+#endif      
+            return NSAPI_ERROR_OK;
         case BG96_MQTT_NETWORK_ERROR_WRONG_PARAMETER:
 #if defined(MQTT_DEBUG)
             printf("BG96MQTTClient: Error opening network socket. Wrong parameter.\r\n");

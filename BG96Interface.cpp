@@ -161,6 +161,8 @@ BG96Interface::BG96Interface(void) :
     #if MBED_CONF_APP_BG96_DEBUG == true
     g_debug=0;
     #endif
+    _tls = NULL;
+    _mqtt = NULL;
 }
 
 /** ----------------------------------------------------------
@@ -1011,14 +1013,15 @@ GNSSLoc * BG96Interface::getGNSSLocation()
 BG96TLSSocket * BG96Interface::getBG96TLSSocket()
 {
     BG96* bg96 = &_BG96;
-    BG96TLSSocket * socket = new BG96TLSSocket(bg96);
-    return socket;
+    if (_tls == NULL) _tls = new BG96TLSSocket(bg96);
+    return _tls;
 }
 
 BG96MQTTClient * BG96Interface::getBG96MQTTClient(BG96TLSSocket* tls)
 {
     BG96* bg96 = &_BG96;
+    if (_mqtt != NULL) return _mqtt;
     if (tls == NULL) tls = getBG96TLSSocket();
-    BG96MQTTClient * mqtt = new BG96MQTTClient(bg96, tls);
-    return mqtt;
+    _mqtt = new BG96MQTTClient(bg96, tls);
+    return _mqtt;
 }

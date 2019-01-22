@@ -349,6 +349,10 @@ public:
 
     int         send_generic_cmd(const char* cmd, int timeout);
 
+    int         file_exists(const char* filename);
+
+    int         delete_file(const char* filename);
+
     int         send_file(const char* content, const char* filename, bool overrideok);
 
     int         configure_cacert_path(const char* path, int sslctx_id);

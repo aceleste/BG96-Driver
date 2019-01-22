@@ -20,6 +20,7 @@ public:
     int             get_timeout()               {return this->timeout;};
     bool            get_timeout_ovf()           {return this->timeout_ovf;};
     void            set_timeout_ovf(bool ovf)   {this->timeout_ovf = ovf;};
+    void            set_socket_id(int socket_id){this->sslctx_id = socket_id;};
     nsapi_error_t   recv(void * buffer, nsapi_size_t size);
     nsapi_error_t   send(const void * data, nsapi_size_t size);
     nsapi_error_t   set_root_ca_cert(const char * root_ca_pem);

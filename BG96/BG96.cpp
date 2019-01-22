@@ -238,9 +238,10 @@ bool BG96::startup(void)
         
     _bg96_mutex.lock();
     _parser.set_timeout(BG96_1s_WAIT);
-    if( tx2bg96((char*)"ATE0") )
+    if( tx2bg96((char*)"ATE0") ) {
         done = tx2bg96((char*)"AT+COPS?");
         done = tx2bg96("ATI"); // request product info
+    }
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
     if (done) { 
@@ -728,7 +729,7 @@ bool BG96::updateGNSSLoc(void)
     bool done;
     _bg96_mutex.lock();
     _parser.set_timeout(3000);  
-    done = (_parser.send("AT+QGPSLOC=2") && _parser.recv("+QGPSLOC: %s\r\n", locationstring));  
+    done = (_parser.send("AT+QGPSLOC=2") && _parser.recv("+QGPSLOC: %[^\r]\r\n", locationstring));  
     _parser.set_timeout(BG96_AT_TIMEOUT);
 //    printf("[BG96Driver]: Received cmd -> %s\r\n", cmd);
     printf("[BG96Driver]: Received location string -> \r\n");
@@ -761,6 +762,34 @@ GNSSLoc * BG96::getGNSSLoc()
     return result;
 }
 
+int BG96::file_exists(const char* filename)
+{
+    int rc = 0;
+    int done;
+    int fsize;
+    char cmd[128];
+    char file[80];
+    sprintf(cmd, "AT+QFLST=\"%s\"", filename);
+    _bg96_mutex.lock();
+    _parser.set_timeout(2000);
+    done = _parser.send(cmd) && _parser.recv("+QFLST: \"%[^\"]\",%d", file, &fsize) && _parser.recv("OK") && strcmp(file, filename) == 0;
+    if (done) rc = 1;
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return rc;
+}
+
+int BG96::delete_file(const char* filename)
+{
+    char cmd[128];
+    int done = false;
+    sprintf(cmd, "AT+QFDEL=\"%s\"", filename);
+    _bg96_mutex.lock();
+    done = _parser.send(cmd) && _parser.recv("OK");
+    _bg96_mutex.unlock();
+    return done;
+}
+
 int BG96::send_file(const char* content, const char* filename, bool overrideok)
 {
     //test if file exist
@@ -775,33 +804,28 @@ int BG96::send_file(const char* content, const char* filename, bool overrideok)
     //   upload file
     //fi
     bool done = false;
-    bool upload = false;
+    bool upload = true;
     int good = 0;
     unsigned int upload_size=0;
     unsigned int checksum=0;
-    size_t filesize = strlen(content) + 1;
+    size_t filesize = strlen(content)+1;
     char cmd[128];
-    sprintf(cmd, "AT+QFLST=\"%s\"", filename);
-    _bg96_mutex.lock();
-    _parser.set_timeout(BG96_1s_WAIT);
-    done = _parser.send(cmd) && _parser.recv("OK");
-    if (done) { // File exists
+    
+    if (file_exists(filename)) { // File exists
         if (overrideok) {
-            sprintf(cmd, "AT+QFDEL=\"%s\"", filename);
-            done = _parser.send(cmd) && _parser.recv("OK");
+            done = delete_file(filename);
             if (done) {
                 upload = true;
             } else {
+                upload = false;
                 printf("BG96: Error trying to delete file %s\r\n", filename);
-                 _bg96_mutex.unlock();
-                return 0;
+                return 0; //We should be overriding and we can't so we fail.
             }
         } else {
-            _bg96_mutex.unlock();
+            upload = false;
             return 1; // we suppose the file that is here is ok
         }
     }
-    _bg96_mutex.unlock();
     if (upload) {
         sprintf(cmd, "AT+QFUPL=\"%s\",%d", filename, filesize);
         _bg96_mutex.lock();
@@ -935,7 +959,7 @@ bool BG96::ssl_client_status(int client_id)
     _bg96_mutex.lock();
     _parser.set_timeout(BG96_60s_TO);
     if(_parser.send("AT+QSSLSTATE=%d", client_id))
-    _parser.recv("+QSSLSTATE:%d,\"%s\",\"%s\",%d,%d,%d,%d,%d,%d,\"%s\",%d",
+    _parser.recv("+QSSLSTATE:%d,\"%[^\"]\",\"%[^\"]\",%d,%d,%d,%d,%d,%d,\"%[^\"]\",%d",
                         &id,dummy,ip,&remoteport,&localport,&socket_state,
                         &pdp_id,&server_id,&access_mode,ATport,&ssl_id);
     _parser.set_timeout(BG96_AT_TIMEOUT);
