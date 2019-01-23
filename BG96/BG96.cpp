@@ -1167,4 +1167,48 @@ int BG96::mqtt_disconnect(int mqtt_id)
     return rc;
 }
 
+ int BG96::mqtt_subscribe(int mqtt_id, const char* topic, int qos, int msg_id)
+ {
+    int rc=-1;
+    _bg96_mutex.lock();
+    _parser.set_timeout(15000);
+    if (_parser.send("AT+QMTSUB=%d,%d,\"%s\",%d", mqtt_id, msg_id, topic, qos) && _parser.recv("OK")) rc = NSAPI_ERROR_OK;
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return rc;
+ }
 
+ int BG96::mqtt_unsubscribe(int mqtt_id, const char* topic, int msg_id)
+ {
+    int rc=-1;
+    _bg96_mutex.lock();
+    _parser.set_timeout(15000);
+    if (_parser.send("AT+QMTUNS=%d,%d,\"%s\"", mqtt_id, msg_id, topic) && _parser.recv("OK")) rc = NSAPI_ERROR_OK;
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return rc;  
+ }
+
+int BG96::mqtt_publish(int mqtt_id, int msg_id, int qos, int retain, const char* topic, const void* data, int amount)
+{
+    int rc=-1;
+    int id, mid, res;
+    bool done;
+     
+    _bg96_mutex.lock();
+    _parser.set_timeout(BG96_TX_TIMEOUT);
+
+    done = _parser.send("AT+QMTPUB=%d,%d,%d,%d,\"%s\"", mqtt_id, msg_id, qos, retain, topic); 
+    if( done && _parser.recv(">") ) {
+        done = (_parser.write((char*)data, (int)amount) <= 0 && _parser.recv("OK"));
+    } else { 
+        rc=-1;
+        _parser.set_timeout(BG96_AT_TIMEOUT);
+        _bg96_mutex.unlock();
+        return rc;
+    }
+    if ( done && _parser.recv("+QMTPUB: %d,%d,%d", &id, &mid, &res) && res == 0 ) rc = 1;
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return rc;
+}

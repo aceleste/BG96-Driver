@@ -24,6 +24,8 @@
 #define BG96_MQTT_CLIENT_SUBSCRIBE_PACKET_RETRANSMIT        1
 #define BG96_MQTT_CLIENT_SUBSCRIBE_PACKET_SEND_FAIL         2
 
+#define BG96_MQTT_CLIENT_UNSUBSCRIBE_ERROR_TOPIC_NOT_FOUND  -1000
+
 typedef struct {
     char* payload;
     u_int32_t len;
@@ -76,6 +78,9 @@ typedef struct {
 
 
 typedef struct {
+    int msg_id;
+    int qos;
+    int retain;
     MQTTString  topic;
     MQTTString  msg;
 } MQTTMessage;
@@ -84,8 +89,8 @@ typedef void(*MQTTMessageHandler)(void* ctx, MQTTMessage* payload) ;
 
 typedef struct {
     int  msg_id;
-    MQTTString topic;
     int  qos;
+    MQTTConstString topic;
     MQTTMessageHandler handler;
     void* next;
 } MQTTSubscription;
@@ -128,13 +133,15 @@ public:
 
 
 
-    nsapi_error_t       subscribe(const char* topic) {return -1;};
-    nsapi_error_t       unsuscribe(const char* topic) {return -1;};
-    nsapi_error_t       publish(MQTTMessage* message) {return -1;};
+    nsapi_error_t       subscribe(const char* topic, int qos, MQTTMessageHandler handler);
+    nsapi_error_t       unsubscribe(const char* topic);
+    nsapi_error_t       publish(MQTTMessage* message);
     void                dowork() {};
 protected:
-    MQTTSubscription*   get_default_subscription(MQTTMessageHandler handler) {return NULL;};
-    bool                append_subscription(MQTTSubscription* sublist, MQTTSubscription* newsub) {return false;};
+    int                 getNextMessageId(){ return _nmid++; }; // TODO: Modify this to limit to values in range or use simple LIFO buffer
+    MQTTSubscription*   findSubscriptionByTopic(const char* topic);
+    bool                append_subscription(MQTTSubscription* newsub);
+    bool                remove_subscription(MQTTSubscription* subtoremove);
 private:
     void                mqtt_task() {};
 
@@ -143,6 +150,7 @@ private:
     BG96TLSSocket*      _tls;
     MQTTClient_Ctx      _ctx;
     MQTTSubscription*   _sublist;
+    int                 _nmid; //next msg id
 };
 
 #endif //__BG96_MQTT_CLIENT_H__

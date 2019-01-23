@@ -382,7 +382,9 @@ public:
                                             const char* password,
                                             ConnectResult &result);
     int         mqtt_disconnect(int mqtt_id);
-//    int         mqtt_subscribe(MQTTSubscribe* sub);
+    int         mqtt_subscribe(int mqtt_id, const char* topic, int qos, int msg_id);
+    int         mqtt_unsubscribe(int mqtt_id, const char* topic, int msg_id);
+    int         mqtt_publish(int mqtt_id, int msg_id, int qos, int retain, const char* topic, const void* data, int amount);
 
 private:
     bool        tx2bg96(char* cmd);

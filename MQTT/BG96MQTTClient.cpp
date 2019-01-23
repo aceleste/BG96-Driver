@@ -15,6 +15,7 @@ BG96MQTTClient::BG96MQTTClient(BG96* bg96, BG96TLSSocket* tls)
     _ctx.ssl_ctx_id  = 2;
     _ctx.mqtt_ctx_id = 0;
     _sublist = NULL;
+    _nmid = 1;
 }
 
 BG96MQTTClient::~BG96MQTTClient()
@@ -224,10 +225,86 @@ nsapi_error_t BG96MQTTClient::disconnect()
    return _bg96->mqtt_disconnect(_ctx.mqtt_ctx_id);
 }
 
-// nsapi_error_t BG96MQTTClient::subscribe(MQTTSubscription* sub) {
-//     int rc=-1;
-//     if (!append_subscription(sub)) return NSAPI_ERROR_DEVICE_ERROR;
-//     rc = _bg96->mqtt_subscribe(sub);
-//     return rc
-// }
+nsapi_error_t BG96MQTTClient::subscribe(const char* topic, int qos, MQTTMessageHandler handler) {
+    int rc=-1;
+    MQTTSubscription* sub = (MQTTSubscription*) malloc(sizeof(MQTTSubscription));
+    if (sub == NULL) return NSAPI_ERROR_NO_MEMORY;
+    sub->handler = handler;
+    sub->msg_id = getNextMessageId();
+    sub->qos = qos;
+    sub->topic.payload = topic;
+    sub->topic.len = strlen(topic);
+    if (!append_subscription(sub)) return NSAPI_ERROR_DEVICE_ERROR;
+    rc = _bg96->mqtt_subscribe(_ctx.mqtt_ctx_id, sub->topic.payload, sub->qos, sub->msg_id);
+    return rc;
+}
 
+nsapi_error_t BG96MQTTClient::unsubscribe(const char* topic)
+{
+    int rc=-1;
+    MQTTSubscription* sub = findSubscriptionByTopic(topic);
+    if (sub == NULL) return BG96_MQTT_CLIENT_UNSUBSCRIBE_ERROR_TOPIC_NOT_FOUND;
+    if (!remove_subscription(sub)) return NSAPI_ERROR_DEVICE_ERROR;
+    rc = _bg96->mqtt_unsubscribe(_ctx.mqtt_ctx_id, sub->topic.payload, sub->msg_id);
+    free(sub); //we are done with the subscription release memory
+    return rc;
+}
+
+MQTTSubscription* BG96MQTTClient::findSubscriptionByTopic(const char* topic)
+{
+    MQTTSubscription* iterator = _sublist;
+    while(iterator->next != NULL) {
+        if (strcmp(iterator->topic.payload, topic) == 0) return iterator;
+    }
+    return NULL;
+}
+bool BG96MQTTClient::append_subscription(MQTTSubscription* sub)
+{
+    MQTTSubscription* iterator;
+    if (sub == NULL) return false;
+    if (_sublist == NULL) {
+        _sublist = sub;
+    } else {
+        iterator = _sublist;
+        while(iterator->next != NULL) iterator = (MQTTSubscription*) iterator->next;
+        iterator->next = sub;
+    }
+    return true;
+}
+
+bool BG96MQTTClient::remove_subscription(MQTTSubscription* sub)
+{
+    MQTTSubscription* iterator;
+    if (sub == NULL) return true;
+    if (_sublist == NULL) return true;
+    iterator = _sublist;
+    if (iterator == sub) {
+        if (iterator->next != NULL) {
+            _sublist = (MQTTSubscription*) iterator->next; 
+        } else {
+            _sublist = NULL;
+        }
+    } else {
+        while (iterator->next != sub) iterator = (MQTTSubscription*) iterator->next;
+        if (sub->next != NULL) {
+            iterator->next = sub->next;
+            sub->next = NULL;
+        } else {
+            iterator->next = NULL; // sub was the last item in the list
+        }
+    }
+    return true;
+}
+
+nsapi_error_t BG96MQTTClient::publish(MQTTMessage* message)
+{
+    if (message == NULL) return NSAPI_ERROR_DEVICE_ERROR;
+    message->msg_id = getNextMessageId();
+    return _bg96->mqtt_publish(_ctx.mqtt_ctx_id,
+                                message->msg_id,
+                                message->qos,
+                                message->retain,
+                                message->topic.payload,
+                                message->msg.payload,
+                                message->msg.len);
+}
