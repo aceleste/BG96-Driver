@@ -85,7 +85,7 @@ typedef struct {
     MQTTString  msg;
 } MQTTMessage;
 
-typedef void(*MQTTMessageHandler)(void* ctx, MQTTMessage* payload) ;
+typedef void(*MQTTMessageHandler)(MQTTMessage* payload) ;
 
 typedef struct {
     int  msg_id;
@@ -135,22 +135,27 @@ public:
 
     nsapi_error_t       subscribe(const char* topic, int qos, MQTTMessageHandler handler);
     nsapi_error_t       unsubscribe(const char* topic);
+    void *              recv();
     nsapi_error_t       publish(MQTTMessage* message);
-    void                dowork() {};
+    void                dowork();
+    bool                isRunning();
+    MQTTSubscription*   getSubscriptions() {return _sublist;};
+    void                setSubscriptions(MQTTSubscription* subs) { _sublist = subs;};
+    MQTTSubscription*   findSubscriptionByTopic(const char* topic);
 protected:
     int                 getNextMessageId(){ return _nmid++; }; // TODO: Modify this to limit to values in range or use simple LIFO buffer
-    MQTTSubscription*   findSubscriptionByTopic(const char* topic);
     bool                append_subscription(MQTTSubscription* newsub);
     bool                remove_subscription(MQTTSubscription* subtoremove);
 private:
-    void                mqtt_task() {};
 
-//    Thread          _mqtt_thread;
+    Mutex               _mqtt_mutex;
+    Thread              _mqtt_thread;
     BG96*               _bg96;
     BG96TLSSocket*      _tls;
     MQTTClient_Ctx      _ctx;
     MQTTSubscription*   _sublist;
     int                 _nmid; //next msg id
+    bool                _running;
 };
 
 #endif //__BG96_MQTT_CLIENT_H__

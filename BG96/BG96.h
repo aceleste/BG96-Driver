@@ -385,6 +385,8 @@ public:
     int         mqtt_subscribe(int mqtt_id, const char* topic, int qos, int msg_id);
     int         mqtt_unsubscribe(int mqtt_id, const char* topic, int msg_id);
     int         mqtt_publish(int mqtt_id, int msg_id, int qos, int retain, const char* topic, const void* data, int amount);
+    void*       mqtt_recv(int mqtt_id);
+    void*       mqtt_checkAvail(int mqtt_id);
 
 private:
     bool        tx2bg96(char* cmd);

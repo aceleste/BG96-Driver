@@ -35,6 +35,7 @@
 #include "BG96.h"
 #include "GNSSLoc.h"
 #include "nsapi_types.h"
+#include "BG96MQTTClient.h"
 
 #ifndef DEFAULT_PDP
 #define DEFAULT_PDP 1
@@ -1211,4 +1212,31 @@ int BG96::mqtt_publish(int mqtt_id, int msg_id, int qos, int retain, const char*
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
     return rc;
+}
+
+void* BG96::mqtt_checkAvail(int mqtt_id)
+{
+    MQTTMessage msg;
+    int id, msg_id;
+    char payload[256];
+    char topic[80];
+    _parser.set_timeout(1);
+    int i = _parser.recv("+QMTRECV: %d,%d,\"[^\"]\",[^[\r\n]]", &id, &msg_id, topic, payload);
+    if (i && id == mqtt_id) {
+        msg.topic.len = strlen(topic);
+        msg.topic.payload = topic;
+        msg.msg.len = strlen(payload);
+        msg.msg.payload = payload;
+        _parser.set_timeout(BG96_AT_TIMEOUT);
+        return (void *)&msg;
+    } else {
+        _parser.set_timeout(BG96_AT_TIMEOUT);
+        return NULL;
+    }
+}
+
+void* BG96::mqtt_recv(int mqtt_id)
+{
+    MQTTMessage* msg = (MQTTMessage *)mqtt_checkAvail(mqtt_id);
+    return (void *)&msg;
 }

@@ -20,7 +20,9 @@ BG96MQTTClient::BG96MQTTClient(BG96* bg96, BG96TLSSocket* tls)
 
 BG96MQTTClient::~BG96MQTTClient()
 {
-
+    _running = false;
+    _mqtt_thread.join();
+//    if (_sublist != NULL) freeSublist(); //maybe a good thing to record it and reactivate it on reconnection instead.
 }
 
 nsapi_error_t BG96MQTTClient::configure_pdp_context(BG96_PDP_Ctx* pdp_ctx)
@@ -307,4 +309,42 @@ nsapi_error_t BG96MQTTClient::publish(MQTTMessage* message)
                                 message->topic.payload,
                                 message->msg.payload,
                                 message->msg.len);
+}
+
+void * BG96MQTTClient::recv()
+{
+    return _bg96->mqtt_recv(_ctx.mqtt_ctx_id);
+}
+
+bool BG96MQTTClient::isRunning()
+{
+    bool ret;
+    _mqtt_mutex.lock();
+    ret = _running;
+    _mqtt_mutex.unlock();
+    return ret;
+}
+
+static void mqtt_task(BG96MQTTClient* client)
+{
+    MQTTSubscription* subp = NULL;
+    MQTTMessage* msg = NULL;
+    while (client->isRunning()) {
+        msg = (MQTTMessage *)client->recv();
+        if (msg != NULL) {
+            if (msg != NULL && msg->topic.payload != NULL) {
+                subp = client->findSubscriptionByTopic(msg->topic.payload);
+                if (subp != NULL && subp->handler != NULL) subp->handler(msg); // Could be a good point to inject receiving timestamp
+            }
+        }
+        wait(10); //Check every 10s - sleep in between
+    }
+}
+
+void BG96MQTTClient::dowork()
+{  
+    _mqtt_mutex.lock();
+    _running = true;
+    _mqtt_mutex.unlock();
+    _mqtt_thread.start(callback(mqtt_task, this));
 }
