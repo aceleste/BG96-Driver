@@ -1,5 +1,6 @@
 #ifndef __BG96_MQTT_CLIENT_H__
 #define __BG96_MQTT_CLIENT_H__
+#include "Thread.h"
 #include "BG96.h"
 #include "BG96TLSSocket.h"
 
@@ -73,7 +74,7 @@ typedef struct {
     MQTTClientOptions* options;
 } MQTTClient_Ctx;
 
-#define BG96MQTTClientOptions_Initializer {4,120,5,0,3,0,0,0,{NULL,0},{NULL,0},1,1}
+#define BG96MQTTClientOptions_Initializer {4,120,45,0,3,0,0,0,{NULL,0},{NULL,0},1,1}
 
 
 
@@ -137,7 +138,7 @@ public:
     nsapi_error_t       unsubscribe(const char* topic);
     void *              recv();
     nsapi_error_t       publish(MQTTMessage* message);
-    void                dowork();
+    osStatus            dowork();
     bool                isRunning();
     MQTTSubscription*   getSubscriptions() {return _sublist;};
     void                setSubscriptions(MQTTSubscription* subs) { _sublist = subs;};

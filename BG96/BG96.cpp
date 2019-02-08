@@ -176,8 +176,8 @@ int BG96::configure_pdp_context(BG96_PDP_Ctx * pdp_ctx)
     if (pdp_ctx == NULL) return -1;
     setContext(pdp_ctx->pdp_id);
     _bg96_mutex.lock();
-    if (_parser.send("AT+QICSGP=%d,1,\"%s\",\"\",\"\"", pdp_ctx->pdp_id,
-                                            pdp_ctx->apn) && _parser.recv("OK")) rc = pdp_ctx->pdp_id; //pdp_ctx->username, pdp_ctx->password)
+    if (_parser.send("AT+QICSGP=%d,1,\"%s\",\"%s\",\"%s\"", pdp_ctx->pdp_id,
+                                            pdp_ctx->apn, pdp_ctx->username, pdp_ctx->password) && _parser.recv("OK")) rc = pdp_ctx->pdp_id; //pdp_ctx->username, pdp_ctx->password)
     _bg96_mutex.unlock();
     return rc;
 }
@@ -236,10 +236,46 @@ bool BG96::startup(void)
         return false;
         
     _bg96_mutex.lock();
-    _parser.set_timeout(BG96_1s_WAIT);
+    _parser.set_timeout(2000);//BG96_1s_WAIT
     if( tx2bg96((char*)"ATE0") ) {
-        done = tx2bg96((char*)"AT+COPS?");
-        done = tx2bg96("ATI"); // request product info
+/*
+AT+QGMR // check firmware version
+AT+CFUN=0 // disable radio function
+AT+QCFG="band",0,0,80000,1 //here band 20 is set
+AT+QCFG="nwscanmode",3,1 //here NB network only is set
+AT+QCFG="nwscanseq",03,1
+AT+QCFG="iotopmode",1,1 // PS only
+AT+QCFG="servicedomain",1,1
+AT+QPSMS=0 //deactivate PSM for test
+AT+QCSCON=1
+AT+CFUN=1 => at this point should be registered to the NB network
+AT+CGDCONT=1,"IP","" //APN should be provisionned on the M2M sim card
+AT+QENG = "servingcell“ // check you’re well registered on cat NB now
+AT+COPS? // answer +COPS: 1,0,"F SFR",9 if well registered otherwise force with next command
+AT+COPS=1,2,"20810",9 //optional in case you’re not properly registered with right ID(20810 for SFR in France) 
+*/
+        tx2bg96((char*)"AT+QGMR"); // request product info
+        tx2bg96((char*)"AT+CFUN=0"); //
+        tx2bg96((char*)"AT+QCFG=\"band\",0,0,80000,1");
+        tx2bg96((char*)"AT+QCFG=\"nwscanmode\",3,1");
+        tx2bg96((char*)"AT+QCFG=\"nwscanseq\",03,1");
+        tx2bg96((char*)"AT+QCFG=\"iotopmode\",1,1");
+        tx2bg96((char*)"AT+QCFG=\"servicedomain\",1,1");
+        tx2bg96((char*)"AT+QPSMS=0");
+        tx2bg96((char*)"AT+QCSCON=1");
+        tx2bg96((char*)"AT+CFUN=1");
+        tx2bg96((char*)"AT+CGDCONT=1,\"IP\",\"\"");
+        tx2bg96((char*)"AT+QENG= \"servingcell\"");
+        if (_parser.send("AT+COPS?")) {
+            int mode, format, act;
+            char cops[80]={0};
+            char operstr[40];
+            if (_parser.recv("+COPS: %s\r\n", cops)) {
+                if (sscanf(cops,"%d,%d,\"%[^\"],%d",&mode, &format, operstr, &act) ==1) { // we haven't registered to a network operator
+                    done = tx2bg96((char*)"AT+COPS=0,2,\"\",9"); // Force an automatic registration to a NB compatible network.
+                }
+            }
+        }
     }
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
@@ -323,7 +359,7 @@ nsapi_error_t BG96::connect(int pdp_id)
         done = tx2bg96(cmd);
     if (done) printf("PDP started\r\n\n");
     //wait(5);
-    //tx2bg96("AT+QNWINFO");
+    tx2bg96((char*)"AT+QNWINFO");
     _bg96_mutex.unlock();
     return done ? NSAPI_ERROR_OK:NSAPI_ERROR_DEVICE_ERROR;
 }
@@ -350,15 +386,15 @@ bool BG96::disconnect(void)
 */
 bool BG96::resolveUrl(const char *name, char* ipstr)
 {
-    char buf2[50];
+    char buf2[50]={0};
     bool ok=false;
     int  err=0, ipcount=0, dnsttl=0;
 
-    memset(buf2,0,50);
+    strcpy(ipstr,"");
 
     _bg96_mutex.lock();
     _parser.set_timeout(BG96_1s_WAIT);
-    _parser.send("AT+QIDNSGIP=%d,\"%s\"",_contextID,name);
+    _parser.send("AT+QIDNSGIP=%d,\"%s\"", _contextID, name);
     ok = _parser.recv("OK");
     if (ok) { // timed out for ERROR, try OK
         _parser.set_timeout(BG96_60s_TO);
@@ -429,12 +465,17 @@ const char *BG96::getIPAddress(char *ipstr)
 {
     int   dummy=0, cs=0, ct=0;
     bool  done=false;
-    //char reply[80];
+    char resp[6];
     _bg96_mutex.lock();
-    _parser.set_timeout(BG96_60s_TO);
+    _parser.set_timeout(10000);
     //_parser.flush();
-    done = _parser.send("AT+QIACT?") && _parser.recv("+QIACT:%d,%d,%d,\"%16[^\"]\"", &dummy, &cs, &ct, ipstr);
-    //_parser.flush();
+    done = _parser.send("AT+QIACT?") ; //&& _parser.recv("%s\r\n", resp) && strcmp(resp, "OK") == 0
+    if (done) {
+        done = _parser.recv("+QIACT:%d,%d,%d,\"%16[^\"]\"", &dummy, &cs, &ct, ipstr);
+    } else {
+        done = false;
+    }
+    _parser.flush();
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
     //printf("Received %s\r\n", reply);
@@ -473,8 +514,8 @@ const char *BG96::getMACAddress(char* sn)
 */
 bool BG96::isConnected(void)
 {
-    char ipAddress[50];
-    return resolveUrl("www.google.com", ipAddress);
+    char ipAddress[50] = {0};
+    return getIPAddress(ipAddress);//resolveUrl("www.google.com", ipAddress);//
 }
 
 /** ----------------------------------------------------------
@@ -498,9 +539,12 @@ bool BG96::open(const char type, int id, const char* addr, int port)
     _bg96_mutex.lock();
     sprintf(cmd,"+QIOPEN: %d,%%d", id);
     _parser.set_timeout(BG96_150s_TO);
-    ok=_parser.send("AT+QIOPEN=%d,%d,\"%s\",\"%s\",%d,0,0\r", _contextID, id, stype, addr, port)
-        && _parser.recv(cmd, &err) 
-        && err == 0;
+    ok=_parser.send("AT+QIOPEN=%d,%d,\"%s\",\"%s\",%d,0,0\r", _contextID, id, stype, addr, port) && _parser.recv("OK");
+    if (ok) { 
+        ok = _parser.recv(cmd, &err) && err == 0;
+    } else {
+        ok = false;
+    }
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
     if( ok )
@@ -1142,7 +1186,7 @@ int BG96::mqtt_connect(int sslctx_id, const char* clientid,
 
     sprintf(cmd, "AT+QMTCONN=%d,\"%s\",\"%s\",\"%s\"", sslctx_id, clientid, username, password);
     _bg96_mutex.lock();
-    _parser.set_timeout(10000);
+    _parser.set_timeout(45000);
     rc = _parser.send(cmd) && _parser.recv("OK");
     if (!rc) {
         char errstring[15];
@@ -1192,20 +1236,35 @@ int BG96::mqtt_disconnect(int mqtt_id)
 
 int BG96::mqtt_publish(int mqtt_id, int msg_id, int qos, int retain, const char* topic, const void* data, int amount)
 {
+    if (amount >= BG96_MQTT_CLIENT_MAX_PUBLISH_MSG_SIZE) return -1;
     int rc=-1;
     int id, mid, res;
     bool done;
      
     _bg96_mutex.lock();
-    _parser.set_timeout(BG96_TX_TIMEOUT);
+    _parser.set_timeout(BG96_60s_TO);
 
     done = _parser.send("AT+QMTPUB=%d,%d,%d,%d,\"%s\"", mqtt_id, msg_id, qos, retain, topic); 
     if( done && _parser.recv(">") ) {
-        done = (_parser.write((char*)data, (int)amount) <= 0 && _parser.recv("OK"));
+        bool sent;
+        if (_parser.write((char*)data, (int)amount)) {
+            printf("wrote data\r\n");
+            sent = true;
+        } else {
+            printf("error while sending data\r\n");
+            sent = false;
+        }
+        char c[1] = {'\x1A'};
+        if (_parser.write(c,1)) {
+            printf("wrote Ctrl+Z\r\n");
+            sent = true;
+        } else {
+            printf("error while sending Ctrl+Z\r\n");
+            sent = false;
+        }
+        done = sent;
     } else { 
-        rc=-1;
-        _parser.set_timeout(BG96_AT_TIMEOUT);
-        _bg96_mutex.unlock();
+        done = false;
         return rc;
     }
     if ( done && _parser.recv("+QMTPUB: %d,%d,%d", &id, &mid, &res) && res == 0 ) rc = 1;
@@ -1216,27 +1275,45 @@ int BG96::mqtt_publish(int mqtt_id, int msg_id, int qos, int retain, const char*
 
 void* BG96::mqtt_checkAvail(int mqtt_id)
 {
-    MQTTMessage msg;
+    MQTTMessage* msg = NULL;
     int id, msg_id;
     char payload[256];
     char topic[80];
+    msg = (MQTTMessage*) malloc(sizeof(MQTTMessage));
+    if (msg == NULL) return NULL;
+    _bg96_mutex.lock();
     _parser.set_timeout(1);
-    int i = _parser.recv("+QMTRECV: %d,%d,\"[^\"]\",[^[\r\n]]", &id, &msg_id, topic, payload);
+    int i = _parser.recv("+QMTRECV: %d,%d,\"%[^\"]\",%256[^\n]", &id, &msg_id, topic, payload);
+    
     if (i && id == mqtt_id) {
-        msg.topic.len = strlen(topic);
-        msg.topic.payload = topic;
-        msg.msg.len = strlen(payload);
-        msg.msg.payload = payload;
+        char * cpayload = (char *) malloc(strlen(payload));
+        if (cpayload == NULL) {
+            free(msg);
+            return NULL;
+        }
+        strcpy(cpayload, payload);
+        char * ctopic = (char *) malloc(strlen(topic));
+        if (ctopic == NULL) {
+            free(msg);
+            free(cpayload);
+            return NULL;
+        }
+        strcpy(ctopic, topic);
+        msg->topic.len = strlen(topic);
+        msg->topic.payload = ctopic;
+        msg->msg.len = strlen(payload);
+        msg->msg.payload = cpayload; // ACHTUNG !! this pointer will get invalidated when the function exits.
         _parser.set_timeout(BG96_AT_TIMEOUT);
-        return (void *)&msg;
+        _bg96_mutex.unlock();
+        return (void *)msg;
     } else {
         _parser.set_timeout(BG96_AT_TIMEOUT);
+        _bg96_mutex.unlock();
         return NULL;
     }
 }
 
 void* BG96::mqtt_recv(int mqtt_id)
 {
-    MQTTMessage* msg = (MQTTMessage *)mqtt_checkAvail(mqtt_id);
-    return (void *)&msg;
+    return mqtt_checkAvail(mqtt_id);
 }

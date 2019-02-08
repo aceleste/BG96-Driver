@@ -137,7 +137,7 @@ nsapi_error_t BG96MQTTClient::configure_mqtt_will(  int will_fg,
                                                     const char* will_msg)
 {
     char cmd[256];
-    sprintf(cmd, "AT+QMTCFG=\"will\",%d,%d,%d,%d,%s,%s",_ctx.mqtt_ctx_id, will_fg,
+    sprintf(cmd, "AT+QMTCFG=\"will\",%d,%d,%d,%d,\"%s\",\"%s\"",_ctx.mqtt_ctx_id, will_fg,
                                                                           will_qos,
                                                                           will_retain,
                                                                           will_topic,
@@ -181,7 +181,7 @@ nsapi_error_t BG96MQTTClient::connect(MQTTConnect_Ctx* ctx)
                                                ctx->username.payload,
                                                ctx->password.payload,
                                                result);
-    if (result.result == 0) return NSAPI_ERROR_OK;
+    if (result.result == 0 && result.rc == 0) return NSAPI_ERROR_OK;
     switch (result.rc) {
         case BG96_MQTT_CLIENT_CONNECT_ERROR_BAD_CREDENTIALS:
             rc = NSAPI_ERROR_AUTH_FAILURE;
@@ -329,22 +329,34 @@ static void mqtt_task(BG96MQTTClient* client)
 {
     MQTTSubscription* subp = NULL;
     MQTTMessage* msg = NULL;
-    while (client->isRunning()) {
-        msg = (MQTTMessage *)client->recv();
-        if (msg != NULL) {
-            if (msg != NULL && msg->topic.payload != NULL) {
-                subp = client->findSubscriptionByTopic(msg->topic.payload);
-                if (subp != NULL && subp->handler != NULL) subp->handler(msg); // Could be a good point to inject receiving timestamp
+    if (client == NULL) {
+        printf("BG96MQTTClient: Error null pointer in mqtt_task.\r\n");
+    } else {
+        while (client->isRunning()) {
+            msg = (MQTTMessage *)client->recv();
+            if (msg != NULL) {
+                printf("MQTT_TASK: received a message.\r\n");
+                if (msg->topic.payload != NULL) {
+                    subp = client->findSubscriptionByTopic(msg->topic.payload);
+                    if (subp != NULL && subp->handler != NULL) {
+                        subp->handler(msg); // handler is responsible for freeing memory hold by msg
+                    } else {
+                        printf("Couldn't find handler for subscription topic.\r\n");
+                    }
+                    if (msg != NULL) free(msg);
+                }
             }
+            wait(10); //Check every 10s - sleep in between
         }
-        wait(10); //Check every 10s - sleep in between
-    }
+    } 
 }
 
-void BG96MQTTClient::dowork()
+osStatus BG96MQTTClient::dowork()
 {  
     _mqtt_mutex.lock();
     _running = true;
     _mqtt_mutex.unlock();
-    _mqtt_thread.start(callback(mqtt_task, this));
+    printf("starting mqtt task.\r\n");
+    return _mqtt_thread.start(callback(mqtt_task, this));
 }
+

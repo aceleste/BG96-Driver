@@ -57,6 +57,8 @@
 #define BG96_WRK_CONTEXT        1      //we will only use context 1 in driver
 #define BG96_CLOSE_TO           1      //wait x seconds for a socket close
 #define BG96_MISC_TIMEOUT       1000
+
+#define BG96_MQTT_CLIENT_MAX_PUBLISH_MSG_SIZE 1548
  
 // If target board does not support Arduino pins, define pins as Not Connected
 #if defined(TARGET_FF_ARDUINO)
