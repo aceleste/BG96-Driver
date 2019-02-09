@@ -147,6 +147,7 @@ protected:
     int                 getNextMessageId(){ return _nmid++; }; // TODO: Modify this to limit to values in range or use simple LIFO buffer
     bool                append_subscription(MQTTSubscription* newsub);
     bool                remove_subscription(MQTTSubscription* subtoremove);
+    bool                matchTopic(const char* topic1, const char* topic2);
 private:
 
     Mutex               _mqtt_mutex;

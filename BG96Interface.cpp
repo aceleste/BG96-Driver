@@ -148,7 +148,7 @@ BG96Interface::BG96Interface(void) :
     g_isInitialized(NSAPI_ERROR_NO_CONNECTION),
     g_bg96_queue_id(-1),
     scheduled_events(0),
-    _BG96(false)
+    _BG96(true)
 {
     for( int i=0; i<BG96_SOCKET_COUNT; i++ ) {
         g_sock[i].id = -1;

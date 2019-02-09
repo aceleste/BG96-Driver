@@ -1283,7 +1283,7 @@ void* BG96::mqtt_checkAvail(int mqtt_id)
     if (msg == NULL) return NULL;
     _bg96_mutex.lock();
     _parser.set_timeout(1);
-    int i = _parser.recv("+QMTRECV: %d,%d,\"%[^\"]\",%256[^\n]", &id, &msg_id, topic, payload);
+    int i = _parser.recv("+QMTRECV: %d,%d,\"%[^\"]\",\"%[^\"]", &id, &msg_id, topic, payload);
     
     if (i && id == mqtt_id) {
         char * cpayload = (char *) malloc(strlen(payload));

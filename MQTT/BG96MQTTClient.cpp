@@ -6,7 +6,8 @@
 #define RETURN_RC_IF_NEG(A,B)   A = B; \
                                 if (A < 0) return A
 
-BG96MQTTClient::BG96MQTTClient(BG96* bg96, BG96TLSSocket* tls)
+BG96MQTTClient::BG96MQTTClient(BG96* bg96, BG96TLSSocket* tls) :
+    _mqtt_thread(osPriorityNormal,2048,NULL,NULL)
 {
     _bg96 = bg96;
     _tls  = tls;
@@ -182,6 +183,7 @@ nsapi_error_t BG96MQTTClient::connect(MQTTConnect_Ctx* ctx)
                                                ctx->password.payload,
                                                result);
     if (result.result == 0 && result.rc == 0) return NSAPI_ERROR_OK;
+    printf("Connect return result: %d and error code: %d\r\n", result.result, result.rc);
     switch (result.rc) {
         case BG96_MQTT_CLIENT_CONNECT_ERROR_BAD_CREDENTIALS:
             rc = NSAPI_ERROR_AUTH_FAILURE;
@@ -252,14 +254,53 @@ nsapi_error_t BG96MQTTClient::unsubscribe(const char* topic)
     return rc;
 }
 
+bool BG96MQTTClient::matchTopic(const char* topic1, const char* topic2)
+{
+    bool rc;
+    char * t1 = (char*)malloc(strlen(topic1));
+    if (t1 == NULL) {
+        printf("Cannot allocate memory for the topic matching function\r\n");
+        return false;
+    }
+    strcpy(t1, topic1);
+    char * t2 = (char*)malloc(strlen(topic2));
+    if (t1 == NULL) {
+        printf("Cannot allocate memory for the topic matching function\r\n");
+        return false;
+    }
+    strcpy(t2, topic2);    
+    char *tt1 = t1 + strlen(topic1);
+    while(*tt1 != '/') {
+        *tt1 = '\0';
+        tt1--;
+    }
+    char *tt2 = t2 + strlen(topic2);
+    while(*tt2 != '/') {
+        *tt2 = '\0';
+        tt2--;
+    }
+    // at this stage t1 and t2 contains only the URI path
+    if (strcmp(t1, t2)==0) {
+        rc = true;
+    } else {
+        rc = false;
+    }
+    free(t1);
+    free(t2);
+    return rc;
+}
+
 MQTTSubscription* BG96MQTTClient::findSubscriptionByTopic(const char* topic)
 {
     MQTTSubscription* iterator = _sublist;
+    if (matchTopic(iterator->topic.payload, topic)) return iterator;
     while(iterator->next != NULL) {
-        if (strcmp(iterator->topic.payload, topic) == 0) return iterator;
+        if (matchTopic(iterator->topic.payload, topic)) return iterator;
+        iterator = (MQTTSubscription*)iterator->next;
     }
     return NULL;
 }
+
 bool BG96MQTTClient::append_subscription(MQTTSubscription* sub)
 {
     MQTTSubscription* iterator;
@@ -335,15 +376,18 @@ static void mqtt_task(BG96MQTTClient* client)
         while (client->isRunning()) {
             msg = (MQTTMessage *)client->recv();
             if (msg != NULL) {
-                printf("MQTT_TASK: received a message.\r\n");
+                printf("MQTT_TASK: received a message with content: %s.\r\n", msg->msg.payload);
                 if (msg->topic.payload != NULL) {
                     subp = client->findSubscriptionByTopic(msg->topic.payload);
                     if (subp != NULL && subp->handler != NULL) {
+                        printf("Found handler for the incoming message topic %s.\r\n", msg->topic.payload);
                         subp->handler(msg); // handler is responsible for freeing memory hold by msg
                     } else {
-                        printf("Couldn't find handler for subscription topic.\r\n");
+                        printf("Couldn't find handler for subscription topic %s.\r\n",msg->topic.payload);
                     }
                     if (msg != NULL) free(msg);
+                } else {
+                    printf("Topic of received message is NULL.\r\n");
                 }
             }
             wait(10); //Check every 10s - sleep in between
