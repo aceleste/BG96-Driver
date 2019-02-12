@@ -173,6 +173,20 @@ public:
     void waitBG96Ready(void);
 
     /**
+    * Request SIM status...
+    *
+    * @return < 0 if wrong status or 0 if status OK.
+    */
+    int         getSIMStatus();
+
+    /**
+    * Request CS Service status...
+    *
+    * @return < 0 if wrong status or 0 if status OK.
+    */
+    int         getCSServiceStatus();
+
+    /**
     * Reset BG96
     *
     * @return true if BG96 resets successfully

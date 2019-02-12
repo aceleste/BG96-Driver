@@ -257,13 +257,13 @@ nsapi_error_t BG96MQTTClient::unsubscribe(const char* topic)
 bool BG96MQTTClient::matchTopic(const char* topic1, const char* topic2)
 {
     bool rc;
-    char * t1 = (char*)malloc(strlen(topic1));
+    char * t1 = (char*)malloc(strlen(topic1)+1);
     if (t1 == NULL) {
         printf("Cannot allocate memory for the topic matching function\r\n");
         return false;
     }
     strcpy(t1, topic1);
-    char * t2 = (char*)malloc(strlen(topic2));
+    char * t2 = (char*)malloc(strlen(topic2)+1);
     if (t1 == NULL) {
         printf("Cannot allocate memory for the topic matching function\r\n");
         return false;

@@ -40,7 +40,7 @@
 #ifndef DEFAULT_PDP
 #define DEFAULT_PDP 1
 #endif
-
+#define RUNORRETURN(x,y) if (!x) return y
 //
 // if DEBUG is enabled, these macros are used to dump data arrays
 //
@@ -222,7 +222,29 @@ bool BG96::BG96Ready(void)
     return done;
 }
 
+int BG96::getSIMStatus()
+{
+    int done;
+    _bg96_mutex.lock();
+    _parser.set_timeout(20000);
+    done = _parser.send("AT+CPIN?") && _parser.recv("OK");
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return done;
+}
 
+int BG96::getCSServiceStatus()
+{
+    int done;
+    int n, stat;
+    _bg96_mutex.lock();
+    _parser.set_timeout(90000);
+    _parser.send("AT+CREG?");
+    done = _parser.recv("+CREG: %d,%d", &n, &stat) && _parser.recv("OK") && stat > 0;
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return done;
+}
 /** ----------------------------------------------------------
 * @brief  startup BG96 module
 * @param  none
@@ -230,53 +252,49 @@ bool BG96::BG96Ready(void)
 */
 bool BG96::startup(void)
 {
-    int   done=false;
+    int   done=true;
     
-    if( !BG96Ready() )
-        return false;
-        
+    RUNORRETURN(BG96Ready(), false);
     _bg96_mutex.lock();
     _parser.set_timeout(2000);//BG96_1s_WAIT
-    if( tx2bg96((char*)"ATE0") ) {
-/*
-AT+QGMR // check firmware version
-AT+CFUN=0 // disable radio function
-AT+QCFG="band",0,0,80000,1 //here band 20 is set
-AT+QCFG="nwscanmode",3,1 //here NB network only is set
-AT+QCFG="nwscanseq",03,1
-AT+QCFG="iotopmode",1,1 // PS only
-AT+QCFG="servicedomain",1,1
-AT+QPSMS=0 //deactivate PSM for test
-AT+QCSCON=1
-AT+CFUN=1 => at this point should be registered to the NB network
-AT+CGDCONT=1,"IP","" //APN should be provisionned on the M2M sim card
-AT+QENG = "servingcell“ // check you’re well registered on cat NB now
-AT+COPS? // answer +COPS: 1,0,"F SFR",9 if well registered otherwise force with next command
-AT+COPS=1,2,"20810",9 //optional in case you’re not properly registered with right ID(20810 for SFR in France) 
-*/
-        tx2bg96((char*)"AT+QGMR"); // request product info
-        tx2bg96((char*)"AT+CFUN=0"); //
-        tx2bg96((char*)"AT+QCFG=\"band\",0,0,80000,1");
-        tx2bg96((char*)"AT+QCFG=\"nwscanmode\",3,1");
-        tx2bg96((char*)"AT+QCFG=\"nwscanseq\",03,1");
-        tx2bg96((char*)"AT+QCFG=\"iotopmode\",1,1");
-        tx2bg96((char*)"AT+QCFG=\"servicedomain\",1,1");
-        tx2bg96((char*)"AT+QPSMS=0");
-        tx2bg96((char*)"AT+QCSCON=1");
-        tx2bg96((char*)"AT+CFUN=1");
-        tx2bg96((char*)"AT+CGDCONT=1,\"IP\",\"\"");
-        tx2bg96((char*)"AT+QENG= \"servingcell\"");
+    RUNORRETURN(tx2bg96((char*)"ATE0"),false); 
+    RUNORRETURN(tx2bg96((char*)"AT+QGMR"),false); // request product info
+//    RUNORRETURN(tx2bg96((char*)"AT+CFUN=0"),false);
+
+    RUNORRETURN(tx2bg96((char*)"AT+QCFG=\"band\""),false);//,0000000F,400A0E189F,A0E189F,1
+    RUNORRETURN(tx2bg96((char*)"AT+QCFG=\"nwscanmode\",3,1"),false);
+    RUNORRETURN(tx2bg96((char*)"AT+QCFG=\"nwscanseq\",03,1"),false);
+    RUNORRETURN(tx2bg96((char*)"AT+QCFG=\"iotopmode\",1,1"),false);
+    RUNORRETURN(tx2bg96((char*)"AT+QCFG=\"servicedomain\",1,1"),false);
+    RUNORRETURN(tx2bg96((char*)"AT+QPSMS=0"),false);
+    RUNORRETURN(tx2bg96((char*)"AT+QCSCON=1"),false);
+    RUNORRETURN(tx2bg96((char*)"AT+CFUN=1"),false);
+    RUNORRETURN(tx2bg96((char*)"AT+CGDCONT=1,\"IP\",\"\""),false);
+    RUNORRETURN(tx2bg96((char*)"AT+QENG= \"servingcell\""),false);
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    RUNORRETURN(getSIMStatus(), false);
+    RUNORRETURN(getCSServiceStatus(), false);
+    _bg96_mutex.lock();
+    _parser.set_timeout(2000);//BG96_1s_WAIT 
+    int registered = false;
+    RUNORRETURN(tx2bg96((char*)"AT+CGREG?"), false);
+    _parser.set_timeout(10000);
+    while (!registered) {
         if (_parser.send("AT+COPS?")) {
             int mode, format, act;
             char cops[80]={0};
             char operstr[40];
-            if (_parser.recv("+COPS: %s\r\n", cops)) {
-                if (sscanf(cops,"%d,%d,\"%[^\"],%d",&mode, &format, operstr, &act) ==1) { // we haven't registered to a network operator
+            if (_parser.recv("+COPS: %s\r\n", cops) && _parser.recv("OK")) {
+                if (sscanf(cops,"%d,%d,\"%[^\"],%d",&mode, &format, operstr, &act) == 1) { // we haven't registered to a network operator
                     done = tx2bg96((char*)"AT+COPS=0,2,\"\",9"); // Force an automatic registration to a NB compatible network.
+                } else {
+                    registered = true;
                 }
             }
         }
     }
+
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
     if (done) { 
@@ -297,36 +315,44 @@ nsapi_error_t BG96::connect(const char *apn, const char *username, const char *p
 {
     char pdp_string[100];
     int i = 0;
-	char* search_pt;
+    int done = -1;
+    int type, auth;
+    char lapn[40];
+    char lusername[20];
+    char lpassword[20];
+//	char* search_pt;
 //	uint32_t time;
 //	int pdp_retry = 0;
 	
     _bg96_mutex.lock();
-    memset(pdp_string, 0, sizeof(pdp_string));
+//    memset(pdp_string, 0, sizeof(pdp_string));
 	printf("Checking APN ...\r\n");
-	_parser.send("AT+QICSGP=%d",_contextID);
-	while(1){
-			//read and store answer
-		_parser.read(&pdp_string[i], 1);
-		i++;
-			//if OK rx, end string; if not, program stops
-        search_pt = strstr(pdp_string, "OK\r\n");
-		if (search_pt != 0)
-		{
-            printf("search_pt != 0.\r\n");
-            return NSAPI_ERROR_DEVICE_ERROR;
-            
-		} else {
-            printf("search_pt = 0 \r\n");
-            break;
-        }
-		//TODO: add timeout if no aswer from module!!
+    _parser.set_timeout(5000);
+	if(_parser.send("AT+QICSGP=%d",_contextID)) {
+        done = _parser.recv("+QICSGP: %d,\"%[^\"]\",\"%[^\"]\",\"%[^\"]\",%d", &type, lapn, lusername, lpassword, &auth) && _parser.recv("OK");
     }
-	printf("pdp_string: %s\r\n", pdp_string);
-		//compare APN name, if match, no store is needed
-	search_pt = strstr(pdp_string, apn);
-	if (search_pt == 0)
-	{
+	// while(1){
+	// 		//read and store answer
+	// 	_parser.read(&pdp_string[i], 1);
+	// 	i++;
+	// 		//if OK rx, end string; if not, program stops
+    //     search_pt = strstr(pdp_string, "OK\r\n");
+	// 	if (search_pt != 0)
+	// 	{
+    //         printf("search_pt != 0.\r\n");
+    //         return NSAPI_ERROR_DEVICE_ERROR;
+            
+	// 	} else {
+    //         printf("search_pt = 0 \r\n");
+    //         break;
+    //     }
+	// 	//TODO: add timeout if no aswer from module!!
+    // }
+	// printf("pdp_string: %s\r\n", pdp_string);
+	// 	//compare APN name, if match, no store is needed
+	// search_pt = strstr(pdp_string, apn);
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+	if (!done){
 		//few delay to purge serial ...
 		wait(1);
 		printf("Storing APN %s ...\r\n", apn);
@@ -337,9 +363,8 @@ nsapi_error_t BG96::connect(const char *apn, const char *username, const char *p
 		{
 			return NSAPI_ERROR_DEVICE_ERROR;
 		}
-	}
+    }
     wait(1);
-	printf("End APN check\r\n\n");
     _bg96_mutex.unlock();
 
 	//activate PDP context 1 ...	
@@ -355,11 +380,22 @@ nsapi_error_t BG96::connect(int pdp_id)
     _bg96_mutex.lock();
     timer_s.reset();
     bool done=false;
-    while( !done && timer_s.read_ms() < BG96_150s_TO ) 
+    while( !done && timer_s.read_ms() < BG96_150s_TO ) {
         done = tx2bg96(cmd);
-    if (done) printf("PDP started\r\n\n");
+        if (done) {
+            printf("PDP started\r\n\n");
+        } else {
+            getError(cmd);
+            printf("BG96::Connect error %s\r\n", cmd);
+        }
+    }
+        
     //wait(5);
+#if MQTT_DEBUG
+    _parser.set_timeout(5000);
     tx2bg96((char*)"AT+QNWINFO");
+#endif
+    _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
     return done ? NSAPI_ERROR_OK:NSAPI_ERROR_DEVICE_ERROR;
 }
@@ -467,10 +503,10 @@ const char *BG96::getIPAddress(char *ipstr)
     bool  done=false;
     char resp[6];
     _bg96_mutex.lock();
-    _parser.set_timeout(10000);
     //_parser.flush();
-    done = _parser.send("AT+QIACT?") ; //&& _parser.recv("%s\r\n", resp) && strcmp(resp, "OK") == 0
+    done = _parser.send("AT+QIACT?") && _parser.recv("OK"); //&& _parser.recv("%s\r\n", resp) && strcmp(resp, "OK") == 0
     if (done) {
+        _parser.set_timeout(15000); 
         done = _parser.recv("+QIACT:%d,%d,%d,\"%16[^\"]\"", &dummy, &cs, &ct, ipstr);
     } else {
         done = false;
@@ -1286,23 +1322,25 @@ void* BG96::mqtt_checkAvail(int mqtt_id)
     int i = _parser.recv("+QMTRECV: %d,%d,\"%[^\"]\",\"%[^\"]", &id, &msg_id, topic, payload);
     
     if (i && id == mqtt_id) {
-        char * cpayload = (char *) malloc(strlen(payload));
+        char * cpayload = (char *) malloc(strlen(payload)+1);
         if (cpayload == NULL) {
             free(msg);
             return NULL;
         }
+        memset(cpayload,'\0', strlen(payload)+1);
         strcpy(cpayload, payload);
-        char * ctopic = (char *) malloc(strlen(topic));
+        char * ctopic = (char *) malloc(strlen(topic)+1);
         if (ctopic == NULL) {
             free(msg);
             free(cpayload);
             return NULL;
         }
+        memset(ctopic,'\0', strlen(topic)+1);
         strcpy(ctopic, topic);
         msg->topic.len = strlen(topic);
         msg->topic.payload = ctopic;
         msg->msg.len = strlen(payload);
-        msg->msg.payload = cpayload; // ACHTUNG !! this pointer will get invalidated when the function exits.
+        msg->msg.payload = cpayload; 
         _parser.set_timeout(BG96_AT_TIMEOUT);
         _bg96_mutex.unlock();
         return (void *)msg;
