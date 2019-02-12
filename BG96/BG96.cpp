@@ -252,49 +252,53 @@ int BG96::getCSServiceStatus()
 */
 bool BG96::startup(void)
 {
-    int   done=true;
+       int   done=false;
     
-    RUNORRETURN(BG96Ready(), false);
+    if( !BG96Ready() )
+        return false;
+        
     _bg96_mutex.lock();
     _parser.set_timeout(2000);//BG96_1s_WAIT
-    RUNORRETURN(tx2bg96((char*)"ATE0"),false); 
-    RUNORRETURN(tx2bg96((char*)"AT+QGMR"),false); // request product info
-//    RUNORRETURN(tx2bg96((char*)"AT+CFUN=0"),false);
-
-    RUNORRETURN(tx2bg96((char*)"AT+QCFG=\"band\""),false);//,0000000F,400A0E189F,A0E189F,1
-    RUNORRETURN(tx2bg96((char*)"AT+QCFG=\"nwscanmode\",3,1"),false);
-    RUNORRETURN(tx2bg96((char*)"AT+QCFG=\"nwscanseq\",03,1"),false);
-    RUNORRETURN(tx2bg96((char*)"AT+QCFG=\"iotopmode\",1,1"),false);
-    RUNORRETURN(tx2bg96((char*)"AT+QCFG=\"servicedomain\",1,1"),false);
-    RUNORRETURN(tx2bg96((char*)"AT+QPSMS=0"),false);
-    RUNORRETURN(tx2bg96((char*)"AT+QCSCON=1"),false);
-    RUNORRETURN(tx2bg96((char*)"AT+CFUN=1"),false);
-    RUNORRETURN(tx2bg96((char*)"AT+CGDCONT=1,\"IP\",\"\""),false);
-    RUNORRETURN(tx2bg96((char*)"AT+QENG= \"servingcell\""),false);
-    _parser.set_timeout(BG96_AT_TIMEOUT);
-    _bg96_mutex.unlock();
-    RUNORRETURN(getSIMStatus(), false);
-    RUNORRETURN(getCSServiceStatus(), false);
-    _bg96_mutex.lock();
-    _parser.set_timeout(2000);//BG96_1s_WAIT 
-    int registered = false;
-    RUNORRETURN(tx2bg96((char*)"AT+CGREG?"), false);
-    _parser.set_timeout(10000);
-    while (!registered) {
+    if( tx2bg96((char*)"ATE0") ) {
+/*
+AT+QGMR // check firmware version
+AT+CFUN=0 // disable radio function
+AT+QCFG="band",0,0,80000,1 //here band 20 is set
+AT+QCFG="nwscanmode",3,1 //here NB network only is set
+AT+QCFG="nwscanseq",03,1
+AT+QCFG="iotopmode",1,1 // PS only
+AT+QCFG="servicedomain",1,1
+AT+QPSMS=0 //deactivate PSM for test
+AT+QCSCON=1
+AT+CFUN=1 => at this point should be registered to the NB network
+AT+CGDCONT=1,"IP","" //APN should be provisionned on the M2M sim card
+AT+QENG = "servingcell“ // check you’re well registered on cat NB now
+AT+COPS? // answer +COPS: 1,0,"F SFR",9 if well registered otherwise force with next command
+AT+COPS=1,2,"20810",9 //optional in case you’re not properly registered with right ID(20810 for SFR in France) 
+*/
+        tx2bg96((char*)"AT+QGMR"); // request product info
+        tx2bg96((char*)"AT+CFUN=0"); //
+        tx2bg96((char*)"AT+QCFG=\"band\",0,0,80000,1");
+        tx2bg96((char*)"AT+QCFG=\"nwscanmode\",3,1");
+        tx2bg96((char*)"AT+QCFG=\"nwscanseq\",03,1");
+        tx2bg96((char*)"AT+QCFG=\"iotopmode\",1,1");
+        tx2bg96((char*)"AT+QCFG=\"servicedomain\",1,1");
+        tx2bg96((char*)"AT+QPSMS=0");
+        tx2bg96((char*)"AT+QCSCON=1");
+        tx2bg96((char*)"AT+CFUN=1");
+        tx2bg96((char*)"AT+CGDCONT=1,\"IP\",\"\"");
+        tx2bg96((char*)"AT+QENG= \"servingcell\"");
         if (_parser.send("AT+COPS?")) {
             int mode, format, act;
             char cops[80]={0};
             char operstr[40];
-            if (_parser.recv("+COPS: %s\r\n", cops) && _parser.recv("OK")) {
-                if (sscanf(cops,"%d,%d,\"%[^\"],%d",&mode, &format, operstr, &act) == 1) { // we haven't registered to a network operator
+            if (_parser.recv("+COPS: %s\r\n", cops)) {
+                if (sscanf(cops,"%d,%d,\"%[^\"],%d",&mode, &format, operstr, &act) ==1) { // we haven't registered to a network operator
                     done = tx2bg96((char*)"AT+COPS=0,2,\"\",9"); // Force an automatic registration to a NB compatible network.
-                } else {
-                    registered = true;
                 }
             }
         }
     }
-
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
     if (done) { 
