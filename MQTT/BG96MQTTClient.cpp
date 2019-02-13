@@ -292,13 +292,17 @@ bool BG96MQTTClient::matchTopic(const char* topic1, const char* topic2)
 
 MQTTSubscription* BG96MQTTClient::findSubscriptionByTopic(const char* topic)
 {
+    printf("Entering findSubscriptionByTopic\r\n");
     MQTTSubscription* iterator = _sublist;
-    if (matchTopic(iterator->topic.payload, topic)) return iterator;
-    while(iterator->next != NULL) {
+    if (iterator != NULL) {
         if (matchTopic(iterator->topic.payload, topic)) return iterator;
-        iterator = (MQTTSubscription*)iterator->next;
+        while(iterator->next != NULL) {
+            if (matchTopic(iterator->topic.payload, topic)) break;
+            iterator = (MQTTSubscription*)iterator->next;
+        }
     }
-    return NULL;
+    printf("Leaving findSubscriptionByTopic\r\n");
+    return iterator;
 }
 
 bool BG96MQTTClient::append_subscription(MQTTSubscription* sub)
@@ -376,19 +380,21 @@ static void mqtt_task(BG96MQTTClient* client)
         while (client->isRunning()) {
             msg = (MQTTMessage *)client->recv();
             if (msg != NULL) {
-                printf("MQTT_TASK: received a message with content: %s.\r\n", msg->msg.payload);
-                if (msg->topic.payload != NULL) {
-                    subp = client->findSubscriptionByTopic(msg->topic.payload);
-                    if (subp != NULL && subp->handler != NULL) {
-                        printf("Found handler for the incoming message topic %s.\r\n", msg->topic.payload);
-                        subp->handler(msg); // handler is responsible for freeing memory hold by msg
+                if (msg->msg.payload != NULL) {
+                    printf("MQTT_TASK: received a message with content: %s.\r\n", msg->msg.payload);
+                    if (msg->topic.payload != NULL) {
+                        subp = client->findSubscriptionByTopic(msg->topic.payload);
+                        if (subp != NULL && subp->handler != NULL) {
+                            printf("Found handler for the incoming message topic %s.\r\n", msg->topic.payload);
+                            subp->handler(msg); // handler is responsible for freeing memory hold by msg
+                        } else {
+                            printf("Couldn't find handler for subscription topic %s.\r\n",msg->topic.payload);
+                        }
                     } else {
-                        printf("Couldn't find handler for subscription topic %s.\r\n",msg->topic.payload);
+                        printf("Topic of received message is NULL.\r\n");
                     }
-                    if (msg != NULL) free(msg);
-                } else {
-                    printf("Topic of received message is NULL.\r\n");
                 }
+                if (msg != NULL) free(msg);
             }
             wait(10); //Check every 10s - sleep in between
         }
@@ -400,7 +406,6 @@ osStatus BG96MQTTClient::dowork()
     _mqtt_mutex.lock();
     _running = true;
     _mqtt_mutex.unlock();
-    printf("starting mqtt task.\r\n");
     return _mqtt_thread.start(callback(mqtt_task, this));
 }
 

@@ -71,6 +71,10 @@
 #define DUMP_ARRAY(x,s) /* not used */
 #endif
 
+char mqtt_payload[1548];
+char mqtt_topic[80];
+MQTTMessage mqtt_msg;
+
 /** ----------------------------------------------------------
 * @brief  constructor
 * @param  none
@@ -333,8 +337,9 @@ nsapi_error_t BG96::connect(const char *apn, const char *username, const char *p
 	printf("Checking APN ...\r\n");
     _parser.set_timeout(5000);
 	if(_parser.send("AT+QICSGP=%d",_contextID)) {
-        done = _parser.recv("+QICSGP: %d,\"%[^\"]\",\"%[^\"]\",\"%[^\"]\",%d", &type, lapn, lusername, lpassword, &auth) && _parser.recv("OK");
+        done = _parser.recv("+QICSGP: %d,\"%[^\"]\",\"%[^\"]\",\"%[^\"]\",%d\r\n", &type, lapn, lusername, lpassword, &auth);
     }
+    if (done) _parser.recv("OK");
 	// while(1){
 	// 		//read and store answer
 	// 	_parser.read(&pdp_string[i], 1);
@@ -386,13 +391,9 @@ nsapi_error_t BG96::connect(int pdp_id)
     bool done=false;
     while( !done && timer_s.read_ms() < BG96_150s_TO ) {
         done = tx2bg96(cmd);
-        if (done) {
-            printf("PDP started\r\n\n");
-        } else {
-            getError(cmd);
-            printf("BG96::Connect error %s\r\n", cmd);
-        }
     }
+    if (done)
+        printf("PDP started\r\n\n");
         
     //wait(5);
 #if MQTT_DEBUG
@@ -508,10 +509,10 @@ const char *BG96::getIPAddress(char *ipstr)
     char resp[6];
     _bg96_mutex.lock();
     //_parser.flush();
-    done = _parser.send("AT+QIACT?") && _parser.recv("OK"); //&& _parser.recv("%s\r\n", resp) && strcmp(resp, "OK") == 0
+    done = _parser.send("AT+QIACT?"); //&& _parser.recv("%s\r\n", resp) && strcmp(resp, "OK") == 0
     if (done) {
         _parser.set_timeout(15000); 
-        done = _parser.recv("+QIACT:%d,%d,%d,\"%16[^\"]\"", &dummy, &cs, &ct, ipstr);
+        done = _parser.recv("+QIACT:%d,%d,%d,\"%16[^\"]\"", &dummy, &cs, &ct, ipstr) && _parser.recv("OK");
     } else {
         done = false;
     }
@@ -1167,7 +1168,7 @@ int BG96::mqtt_open(const char* hostname, int port)
     sprintf(cmd, "AT+QMTOPEN=%d,\"%s\",%d", 0, hostname, port);
 
     _bg96_mutex.lock();
-    _parser.set_timeout(75000);
+    _parser.set_timeout(10000);
     if (_parser.send(cmd) && _parser.recv("OK")) {
         _parser.recv("+QMTOPEN: %d,%d\r\n", &id, &rc);
     } else {
@@ -1313,46 +1314,51 @@ int BG96::mqtt_publish(int mqtt_id, int msg_id, int qos, int retain, const char*
     return rc;
 }
 
+int BG96::getLatesSyncTime(char *gmttime, int *dst)
+{
+    int done, rc;
+    int ds;
+    char time[25] = {0};
+    _bg96_mutex.lock();
+    _parser.set_timeout(2000);
+    done = _parser.send("AT+QLTS=1");
+    if (done) {
+        done = _parser.recv("+QLTS: \"%[^\"]\"", time) && _parser.recv("OK");
+    }
+    if (done) {
+        sscanf(time, "%22s,%d", gmttime, dst);
+        rc = 0;
+    } else {
+        rc = -1;
+    }
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return rc;
+}
+
 void* BG96::mqtt_checkAvail(int mqtt_id)
 {
-    MQTTMessage* msg = NULL;
+    printf("Entering mqtt_checkAvail\r\n");
+    MQTTMessage* msg;
     int id, msg_id;
-    char payload[256];
-    char topic[80];
-    msg = (MQTTMessage*) malloc(sizeof(MQTTMessage));
-    if (msg == NULL) return NULL;
     _bg96_mutex.lock();
     _parser.set_timeout(1);
-    int i = _parser.recv("+QMTRECV: %d,%d,\"%[^\"]\",\"%[^\"]", &id, &msg_id, topic, payload);
+    int i = _parser.recv("+QMTRECV: %d,%d,\"%[^\"]\",%1548s\r\n", &id, &msg_id, mqtt_topic, mqtt_payload);
     
     if (i && id == mqtt_id) {
-        char * cpayload = (char *) malloc(strlen(payload)+1);
-        if (cpayload == NULL) {
-            free(msg);
-            return NULL;
-        }
-        memset(cpayload,'\0', strlen(payload)+1);
-        strcpy(cpayload, payload);
-        char * ctopic = (char *) malloc(strlen(topic)+1);
-        if (ctopic == NULL) {
-            free(msg);
-            free(cpayload);
-            return NULL;
-        }
-        memset(ctopic,'\0', strlen(topic)+1);
-        strcpy(ctopic, topic);
-        msg->topic.len = strlen(topic);
-        msg->topic.payload = ctopic;
-        msg->msg.len = strlen(payload);
-        msg->msg.payload = cpayload; 
-        _parser.set_timeout(BG96_AT_TIMEOUT);
-        _bg96_mutex.unlock();
-        return (void *)msg;
+        msg = &mqtt_msg;
+        mqtt_payload[strlen(mqtt_payload)-1] = '\0';
+        msg->topic.len = strlen(mqtt_topic);
+        msg->topic.payload = mqtt_topic;
+        msg->msg.len = strlen(mqtt_payload);
+        msg->msg.payload = &mqtt_payload[1]; 
     } else {
-        _parser.set_timeout(BG96_AT_TIMEOUT);
-        _bg96_mutex.unlock();
-        return NULL;
+        msg = NULL;
     }
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    printf("Leaving mqtt_checkAvail\r\n");
+    return (void *)msg;
 }
 
 void* BG96::mqtt_recv(int mqtt_id)

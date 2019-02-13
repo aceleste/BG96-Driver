@@ -171,6 +171,12 @@ public:
      */
     void doDebug( int v );
 
+    /** Blocking function to get GMT network time from BG96 embedded module
+     *  Returns a pointer to GNSSLoc object that must be deleted once no more needed.
+     * @param   pointer to a valid time_t buffer to receive gmt time.
+     */
+    nsapi_error_t getNetworkGMTTime(time_t *gmttime);
+
     /** Blocking function to get location from BG96 embedded GNSS module
      * Returns a pointer to GNSSLoc object that must be deleted once no more needed.
      */

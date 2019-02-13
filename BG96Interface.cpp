@@ -201,6 +201,24 @@ nsapi_error_t BG96Interface::connect(void)
     return ret;
 }
 
+nsapi_error_t BG96Interface::getNetworkGMTTime(time_t *gmttime)
+{
+    char timestr[23]={0};
+    int error;
+    struct tm t;
+    char ds_sign;
+    int dst;
+    int gmtoffset;
+    if ( (error = _BG96.getLatesSyncTime(timestr, &dst)) != NSAPI_ERROR_OK) return error;
+    printf("timestr: %s\r\n", timestr);
+    sscanf(timestr,"%d/%d/%d,%d:%d:%d%c%d",&t.tm_year,&t.tm_mon,&t.tm_mday,&t.tm_hour,&t.tm_min,&t.tm_sec,&ds_sign,&gmtoffset);//yy/MM/dd,hh:mm:ss±zz
+    // if (dst == '-') t.tm_gmtoff = - (gmtoffset * 900);
+    // t.tm_gmtoff = gmtoffset * 900;
+    t.tm_year = t.tm_year - 1900; //tm_year is in number of years since 1900
+    *gmttime = mktime(&t);
+    return NSAPI_ERROR_OK;
+}
+
 nsapi_error_t BG96Interface::connect(const char *apn, const char *username, const char *password)
 {
     Timer t;

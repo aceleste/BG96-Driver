@@ -4,6 +4,7 @@
 #include "BG96.h"
 #include "BG96TLSSocket.h"
 
+#define BG96MQTTCLIENT_MAX_SAS_TOKEN_LENGTH                 256
 #define BG96_MQTT_NETWORK_ERROR_FAILED_NETWORK_OPEN         -1
 #define BG96_MQTT_NETWORK_ERROR_SUCCESSFUL                  0
 #define BG96_MQTT_NETWORK_ERROR_WRONG_PARAMETER             1
@@ -75,8 +76,6 @@ typedef struct {
 } MQTTClient_Ctx;
 
 #define BG96MQTTClientOptions_Initializer {4,120,45,0,3,0,0,0,{NULL,0},{NULL,0},1,1}
-
-
 
 typedef struct {
     int msg_id;

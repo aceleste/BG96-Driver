@@ -363,6 +363,8 @@ public:
      */
     GNSSLoc*    getGNSSLoc();
 
+    int         getLatesSyncTime(char *gmttime, int *dst);
+
     int         send_generic_cmd(const char* cmd, int timeout);
 
     int         file_exists(const char* filename);
@@ -419,7 +421,6 @@ private:
     DigitalOut _vbat_3v8_en;
     DigitalOut _bg96_pwrkey;
     GNSSLoc *  _gnss_loc;
-    
 };
  
 #endif  //__BG96_H__
