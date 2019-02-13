@@ -1338,7 +1338,6 @@ int BG96::getLatesSyncTime(char *gmttime, int *dst)
 
 void* BG96::mqtt_checkAvail(int mqtt_id)
 {
-    printf("Entering mqtt_checkAvail\r\n");
     MQTTMessage* msg;
     int id, msg_id;
     _bg96_mutex.lock();
@@ -1357,7 +1356,6 @@ void* BG96::mqtt_checkAvail(int mqtt_id)
     }
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
-    printf("Leaving mqtt_checkAvail\r\n");
     return (void *)msg;
 }
 
