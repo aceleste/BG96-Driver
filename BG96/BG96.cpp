@@ -1289,7 +1289,6 @@ int BG96::mqtt_publish(int mqtt_id, int msg_id, int qos, int retain, const char*
     if( done && _parser.recv(">") ) {
         bool sent;
         if (_parser.write((char*)data, (int)amount)) {
-            printf("wrote data\r\n");
             sent = true;
         } else {
             printf("error while sending data\r\n");
@@ -1297,7 +1296,6 @@ int BG96::mqtt_publish(int mqtt_id, int msg_id, int qos, int retain, const char*
         }
         char c[1] = {'\x1A'};
         if (_parser.write(c,1)) {
-            printf("wrote Ctrl+Z\r\n");
             sent = true;
         } else {
             printf("error while sending Ctrl+Z\r\n");
