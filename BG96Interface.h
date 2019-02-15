@@ -180,7 +180,7 @@ public:
     /** Blocking function to get location from BG96 embedded GNSS module
      * Returns a pointer to GNSSLoc object that must be deleted once no more needed.
      */
-    GNSSLoc * getGNSSLocation(void);   
+    bool getGNSSLocation(GNSSLoc& loc);   
 
     /** InitializeGNSS module. Current implementation calls startup.
      * 

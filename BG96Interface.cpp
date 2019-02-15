@@ -148,7 +148,7 @@ BG96Interface::BG96Interface(void) :
     g_isInitialized(NSAPI_ERROR_NO_CONNECTION),
     g_bg96_queue_id(-1),
     scheduled_events(0),
-    _BG96(false)
+    _BG96(true)
 {
     for( int i=0; i<BG96_SOCKET_COUNT; i++ ) {
         g_sock[i].id = -1;
@@ -1013,11 +1013,13 @@ bool BG96Interface::initializeBG96(void)
     return _BG96.startup();
 }
 
-GNSSLoc * BG96Interface::getGNSSLocation()
+bool BG96Interface::getGNSSLocation(GNSSLoc& loc)
 {
-    int fix = false;
+    bool fix = false;
+    bool done;
     int ntries = 0;
-    _BG96.startGNSS();
+    done = _BG96.startGNSS();
+    if (!done) return done;
     wait(5);
     while (!fix && ntries < 30) {
         fix = _BG96.updateGNSSLoc();
@@ -1025,7 +1027,14 @@ GNSSLoc * BG96Interface::getGNSSLocation()
         ntries++;
     }
     _BG96.stopGNSS();
-    return _BG96.getGNSSLoc();
+
+    if (fix) {
+        _BG96.getGNSSLoc(loc);
+        done = true;
+    } else {
+        done = false;
+    }
+    return done;
 }
 
 BG96TLSSocket * BG96Interface::getBG96TLSSocket()

@@ -361,6 +361,10 @@ public:
 
     /** function to get the last GNSS location 
      */
+    void        getGNSSLoc(GNSSLoc& loc);
+
+    /** function to get the last GNSS location 
+     */
     GNSSLoc*    getGNSSLoc();
 
     int         getLatesSyncTime(char *gmttime, int *dst);
@@ -420,7 +424,7 @@ private:
     DigitalOut _bg96_reset;
     DigitalOut _vbat_3v8_en;
     DigitalOut _bg96_pwrkey;
-    GNSSLoc *  _gnss_loc;
+    GNSSLoc _gnss_loc;
 };
  
 #endif  //__BG96_H__

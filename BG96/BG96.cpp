@@ -92,14 +92,12 @@ BG96::BG96(bool debug) :
     _parser.debug_on(debug);
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _parser.set_delimiter("\r\n");
-    _gnss_loc = NULL;
 }
 
 BG96::~BG96(void)
 { 
     _bg96_pwrkey = 0;
     _vbat_3v8_en = 0;
-    delete(_gnss_loc); 
 }
 
 /** ----------------------------------------------------------
@@ -808,31 +806,23 @@ int BG96::isGNSSOn(void)
 
 bool BG96::updateGNSSLoc(void)
 {
-    char locationstring[120];
+    char locationstring[80];
 //    char cmd[8];
     bool done;
     _bg96_mutex.lock();
     _parser.set_timeout(3000);  
-    done = (_parser.send("AT+QGPSLOC=2") && _parser.recv("+QGPSLOC: %[^\r]\r\n", locationstring));  
+    done = (_parser.send("AT+QGPSLOC=2") && _parser.recv("+QGPSLOC: %80[^\n]", locationstring));  
     _parser.set_timeout(BG96_AT_TIMEOUT);
 //    printf("[BG96Driver]: Received cmd -> %s\r\n", cmd);
-    printf("[BG96Driver]: Received location string -> \r\n");
-    printf("%s\r\n", &locationstring[0]);
+//    printf("[BG96Driver]: Received location string -> \r\n");
+//    printf("%s\r\n", &locationstring[0]);
 //Test only
-    // strcpy(locationstring, "200315.0,54.70573,-1.56611,1.3,163.0,2,0.00,0.0,0.0,131218,08");
-    // strcpy(cmd, "QGPSLOC"); 
-    // done = 1;   
+    //strcpy(locationstring, "200315.0,54.70573,-1.56611,1.3,163.0,2,0.00,0.0,0.0,131218,08");
+    //strcpy(cmd, "QGPSLOC"); 
+    //done = true;   
 //
     if (done) {
-        GNSSLoc * loc = new GNSSLoc(locationstring);
-        if (loc != NULL){ 
-            delete(_gnss_loc); //free previous loc
-            _gnss_loc = loc;
-            done = true; 
-        } else {
-            printf("[BG96Driver]: Failed creating GNSSLoc instance.\r\n");
-            done = false;
-        }
+        _gnss_loc = GNSSLoc(locationstring);
     }
     _bg96_mutex.unlock();
     return done;
@@ -841,9 +831,16 @@ bool BG96::updateGNSSLoc(void)
 GNSSLoc * BG96::getGNSSLoc()
 {
     _bg96_mutex.lock();
-    GNSSLoc * result = new GNSSLoc(*_gnss_loc); 
+    GNSSLoc * result = new GNSSLoc(_gnss_loc); 
     _bg96_mutex.unlock();
     return result;
+}
+
+void BG96::getGNSSLoc(GNSSLoc& loc)
+{
+    _bg96_mutex.lock();
+    loc = GNSSLoc(_gnss_loc); 
+    _bg96_mutex.unlock();
 }
 
 int BG96::file_exists(const char* filename)

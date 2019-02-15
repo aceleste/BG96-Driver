@@ -7,7 +7,7 @@ class GNSSInterface
 public:
     virtual ~GNSSInterface() {};
 
-    virtual GNSSLoc *getGNSSLocation(); 
+    virtual bool getGNSSLocation(GNSSLoc& loc); 
 
     virtual void initializeGNSS(void);
 
