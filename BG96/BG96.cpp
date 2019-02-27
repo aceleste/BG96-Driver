@@ -36,6 +36,7 @@
 #include "GNSSLoc.h"
 #include "nsapi_types.h"
 #include "BG96MQTTClient.h"
+#include "FSInterface.h"
 
 #ifndef DEFAULT_PDP
 #define DEFAULT_PDP 1
@@ -96,6 +97,12 @@ BG96::BG96(bool debug) :
 
 BG96::~BG96(void)
 { 
+    _bg96_pwrkey = 0;
+    _vbat_3v8_en = 0;
+}
+
+void BG96::powerDown(void)
+{
     _bg96_pwrkey = 0;
     _vbat_3v8_en = 0;
 }
@@ -600,16 +607,26 @@ bool BG96::open(const char type, int id, const char* addr, int port)
 */
 bool BG96::getError(char *str)
 {
-    char lstr[4];
+    char lstr[MAX_ERROR_DESCRIPTION_LENGTH];
     int  err;
     memset(lstr,0x00,sizeof(lstr));
     _bg96_mutex.lock();
     bool done = (_parser.send("AT+QIGETERROR") 
-              && _parser.recv("+QIGETERROR: %d,%[^\\r]",&err,lstr)
+              && _parser.recv("+QIGETERROR: %d,%[^\\n]",&err,lstr)
               && _parser.recv("OK") );
     _bg96_mutex.unlock();
     if( done )
         sprintf(str,"Error:%d",err);
+    return done;
+}
+
+bool BG96::getError(BG96_ERROR &error)
+{
+    _bg96_mutex.lock();
+    bool done = (_parser.send("AT+QIGETERROR") 
+              && _parser.recv("+QIGETERROR: %d,%[^\\n]",&(error.errornum),error.description)
+              && _parser.recv("OK") );
+    _bg96_mutex.unlock();
     return done;
 }
 
@@ -719,6 +736,24 @@ int32_t BG96::recv(int id, void *data, uint32_t cnt)
         ret_cnt = NSAPI_ERROR_DEVICE_ERROR;
     _bg96_mutex.unlock();
     return ret_cnt;
+}
+
+bool BG96::isPowerOn()
+{
+    if ( _vbat_3v8_en == 1 &&_bg96_pwrkey == 1 ) return true;
+    return false;
+}
+
+bool BG96::powerOnGNSS()
+{
+    if (isPowerOn()) return true;
+    if (!BG96Ready()) return false;
+    return configureGNSS();
+}
+
+void BG96::powerOffGNSS()
+{
+    powerDown();
 }
 
 bool BG96::configureGNSS()
@@ -1357,4 +1392,272 @@ void* BG96::mqtt_checkAvail(int mqtt_id)
 void* BG96::mqtt_recv(int mqtt_id)
 {
     return mqtt_checkAvail(mqtt_id);
+}
+
+int BG96::fs_size(size_t &free_size, size_t &total_size)
+{
+    bool done;
+    int rc;
+    _bg96_mutex.lock();
+    _parser.set_timeout(2000);
+    done = _parser.send("AT+QFLDS=\"UFS\"");
+    if (done) {
+       done = _parser.recv("+QFLDS: %ul,%ul", &free_size, &total_size) && _parser.recv("OK");
+    }
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return done ? NSAPI_ERROR_DEVICE_ERROR:NSAPI_ERROR_OK;
+}
+
+int BG96::fs_nfiles(int &nfiles, size_t &sfiles)
+{
+    bool done;
+    int rc;
+    _bg96_mutex.lock();
+    _parser.set_timeout(2000);
+    done = _parser.send("AT+QFLDS");
+    if (done) {
+       done = _parser.recv("+QFLDS: %ul,%d", &sfiles, &nfiles) && _parser.recv("OK");
+    }
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return done ? NSAPI_ERROR_DEVICE_ERROR:NSAPI_ERROR_OK;
+}
+
+int BG96::fs_file_size(const char *filename, size_t &filesize)
+{
+    bool done;
+    char dummy[80];
+    int rc;
+    _bg96_mutex.lock();
+    _parser.set_timeout(2000);
+    done = _parser.send("AT+QFLST=\"%s\"",filename);
+    if (done) {
+       done = _parser.recv("+QFLST: \"%80[^\"]\",%ul", dummy, &filesize) && _parser.recv("OK");
+    }
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return done ? NSAPI_ERROR_DEVICE_ERROR:NSAPI_ERROR_OK;   
+}
+
+int BG96::fs_delete_file(const char *filename)
+{
+    int rc = -1;
+    bool done;
+    _bg96_mutex.lock();
+    _parser.set_timeout(2000);
+    done = _parser.send("AT+QFDEL=\"%s\"", filename) && _parser.recv("OK");
+    if (done) {
+        rc = 0;
+    } 
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return rc;
+}
+
+int BG96::fs_upload_file(const char *filename, void *data, size_t &lsize)
+{
+    bool done = false;
+    bool upload = true;
+    int rc;
+    size_t upload_size=0;
+    unsigned int checksum=0;
+
+    _bg96_mutex.lock();
+    _parser.set_timeout(BG96_1s_WAIT);
+    done = _parser.send("AT+QFUPL=\"%s\",%ul", filename, lsize) && _parser.recv("CONNECT");
+    if (!done) {
+        lsize = 0;
+        _bg96_mutex.unlock();
+        return -1;
+    } else { //We are now in transparent mode, send data to stream 
+        uint16_t i; 
+        char *c = (char*) data;
+        for (i = 0 ; i < lsize; i++) {
+            _parser.putc(*c++);
+        }
+    }
+    _parser.set_timeout(BG96_1s_WAIT);
+    done = _parser.recv("+QFUPL: %ul, %X\r\n", &upload_size, &checksum);
+    if (!done) {
+        printf("BG96: Error uploading file %s\r\n", filename);
+        rc = NSAPI_ERROR_DEVICE_ERROR;
+    } else { // should check for upload_size == filesize and checksum ok.
+        lsize = upload_size;
+        _parser.recv("OK");
+        printf("BG96: Successfully uploaded file %s\r\n", filename);
+        rc = NSAPI_ERROR_OK;
+    }
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return rc;   
+}
+
+int BG96::fs_download_file(const char *filename, void* data, size_t &filesize, int16_t &checksum)
+{
+    int rc;
+    bool done;
+    _bg96_mutex.lock();
+    _parser.set_timeout(2000);
+    done = _parser.send("AT+QFDWL=\"%s\"", filename) && _parser.recv("CONNECT");
+    if (!done){
+        rc = NSAPI_ERROR_DEVICE_ERROR;
+        filesize = 0;
+        _parser.set_timeout(BG96_AT_TIMEOUT);
+        _bg96_mutex.unlock();
+        return rc;
+    } else {
+        char *c = (char *)data;
+        for (int i = 0; i < filesize; i++) {
+            *c++ = _parser.getc();
+        }
+    }
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    size_t fsize;
+    int16_t cs;
+    done = _parser.recv("+QFDWL: %ul,%X\r\n", &fsize, &cs);
+    if (done && filesize == fsize) {
+        filesize = fsize;
+        checksum = cs;
+        rc = NSAPI_ERROR_OK;
+    } else {
+        filesize = 0;
+        checksum = 0;
+        rc = NSAPI_ERROR_DEVICE_ERROR;
+    }
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return rc;      
+}
+
+int BG96::fs_open(const char *filename, FILE_MODE mode, FILE_HANDLE &fh)
+{
+    int rc = NSAPI_ERROR_DEVICE_ERROR;
+    bool done;
+    _bg96_mutex.lock();
+    done = _parser.send("AT+QFOPEN=\"%s\",%d", filename, mode);
+    if (done) {
+        FILE_HANDLE fhandle;
+        done = _parser.recv("+QFOPEN: %d\r\n", &fhandle) && _parser.recv("OK");
+        if (done) {
+            fh = fhandle;
+            rc = NSAPI_ERROR_OK;
+        } else {
+            fh = 0;
+            rc = NSAPI_ERROR_DEVICE_ERROR;
+        }
+    }
+    _bg96_mutex.unlock();
+    return rc;
+}
+
+int BG96::fs_read(FILE_HANDLE fh, size_t length, void *data)
+{
+    int rc;
+    bool done;
+    _bg96_mutex.lock();
+    _parser.set_timeout(2000);
+    done = _parser.send("AT+QFREAD=%d, %ul", fh, length) && _parser.recv("CONNECT");
+    if (!done){
+        rc = NSAPI_ERROR_DEVICE_ERROR;
+        _parser.set_timeout(BG96_AT_TIMEOUT);
+        _bg96_mutex.unlock();
+        return rc;
+    }
+    char *c = (char *)data;
+    for (int i = 0; i < length; i++) {
+        *c++ = _parser.getc();
+    }
+    done = _parser.recv("OK");
+    if (done) {
+        rc = NSAPI_ERROR_OK;
+    } else {
+        rc = NSAPI_ERROR_DEVICE_ERROR;  
+    }
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return rc;
+}
+
+int BG96::fs_write(FILE_HANDLE fh, size_t length, void *data)
+{
+    int rc;
+    bool done;
+    _bg96_mutex.lock();
+    _parser.set_timeout(5000);
+    done = _parser.send("AT+QFWRITE=%d, %ul", fh, length) && _parser.recv("CONNECT");
+    if (!done){
+        rc = NSAPI_ERROR_DEVICE_ERROR;
+        _parser.set_timeout(BG96_AT_TIMEOUT);
+        _bg96_mutex.unlock();
+        return rc;
+    }
+    char *c = (char *)data;
+    for (int i = 0; i < length; i++) {
+        _parser.putc(*c++);
+    }
+    done = _parser.recv("OK");
+    if (done) {
+        rc = NSAPI_ERROR_OK;
+    } else {
+        rc = NSAPI_ERROR_DEVICE_ERROR;
+    }
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return rc;    
+}
+
+int BG96::fs_seek(FILE_HANDLE fh, size_t offset, FILE_POS position)
+{
+    int rc = NSAPI_ERROR_DEVICE_ERROR;
+    bool done;
+    _bg96_mutex.lock();
+    done = _parser.send("AT+QFSEEK=%d,%ul,%d", fh, offset, position) && _parser.recv("OK");
+    if (done) rc = NSAPI_ERROR_OK;
+    _bg96_mutex.unlock();
+    return rc;
+}
+
+int BG96::fs_get_offset(FILE_HANDLE fh, size_t &offset)
+{
+    int rc = NSAPI_ERROR_DEVICE_ERROR;
+    bool done;
+    _bg96_mutex.lock();
+    done = _parser.send("AT+QFPOSITION=%d", fh);
+    if (done) {
+        size_t loff=0;
+        done = _parser.recv("+QFPOSITION: %ul\r\n", &loff);
+        if (done) {
+            offset = loff;
+            rc = NSAPI_ERROR_OK;
+        } else {
+            rc = NSAPI_ERROR_DEVICE_ERROR;
+        }
+    }
+    _bg96_mutex.unlock();
+    return rc;        
+}
+
+int BG96::fs_truncate(FILE_HANDLE fh, size_t offset)
+{
+    int rc = NSAPI_ERROR_DEVICE_ERROR;
+    bool done;
+    _bg96_mutex.lock();
+    _parser.set_timeout(2000);
+    done = _parser.send("AT+QFTUCAT=%d", fh) && _parser.recv("OK");
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return done ? NSAPI_ERROR_DEVICE_ERROR : NSAPI_ERROR_OK;
+}
+
+int BG96::fs_close(FILE_HANDLE fh)
+{
+    int rc = NSAPI_ERROR_DEVICE_ERROR;
+    bool done;
+    _bg96_mutex.lock();
+    _parser.set_timeout(2000);
+    done = _parser.send("AT+QFCLOSE=%d", fh) && _parser.recv("OK");
+    _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
+    return done ? NSAPI_ERROR_DEVICE_ERROR : NSAPI_ERROR_OK;   
 }

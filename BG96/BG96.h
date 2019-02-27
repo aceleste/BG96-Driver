@@ -133,6 +133,15 @@
 #define MBED_CONF_BG96_LIBRARY_BG96_GNSS_FIXRATE                  10
 #endif
 
+#define MAX_ERROR_DESCRIPTION_LENGTH 40
+
+typedef struct 
+{
+    char description[MAX_ERROR_DESCRIPTION_LENGTH];
+    int errornum;
+    /* data */
+} BG96_ERROR;
+
 typedef struct {
     int result;
     int rc;
@@ -193,6 +202,13 @@ public:
     */
     void reset(void);
     
+    /**
+    * Power down the BG96
+    *
+    * @return true if BG96 resets successfully
+    */
+    void powerDown(void);
+
     /**
     * Connect BG96 to APN
     *
@@ -329,6 +345,12 @@ public:
      */
     bool getError(char *);
 
+    /** Return the last error to occur
+     *
+     *  @param          reference to a valid BG96_ERROR structure to return result
+     */
+    bool getError(BG96_ERROR &error);
+
     /** Return the amount a data available
      *
      *  @param          char* [at least 40 long]
@@ -340,6 +362,19 @@ public:
      *  @param          socket to check
      */
     bool        chkRxAvail(int id);
+
+    /** Return true/false if modem is ON/OFF 
+     *
+     */
+    bool        isPowerOn();
+
+    /** Return true/false if initialization ok/failed 
+     */
+    bool        powerOnGNSS(void);   
+
+    /** Turn off modem 
+     */
+    void        powerOffGNSS();
 
     /** Return true/false if configuration ok/failed 
      */
@@ -409,7 +444,19 @@ public:
     int         mqtt_publish(int mqtt_id, int msg_id, int qos, int retain, const char* topic, const void* data, int amount);
     void*       mqtt_recv(int mqtt_id);
     void*       mqtt_checkAvail(int mqtt_id);
-
+    int         fs_size(size_t &free_size, size_t &total_size);
+    int         fs_nfiles(int &nfiles, size_t &sfiles);
+    int         fs_file_size(const char *filename, size_t &filesize);
+    int         fs_delete_file(const char *filename);
+    int         fs_upload_file(const char *filename, void *data, size_t &lsize);
+    int         fs_download_file(const char *filename, void* data, size_t &filesize, int16_t &checksum);
+    int         fs_open(const char *filename, FILE_MODE mode, FILE_HANDLE &fh);
+    int         fs_read(FILE_HANDLE fh, size_t length, void *data);
+    int         fs_write(FILE_HANDLE fh, size_t length, void *data);
+    int         fs_seek(FILE_HANDLE fh, size_t offset, FILE_POS position);
+    int         fs_get_offset(FILE_HANDLE fh, size_t &offset);
+    int         fs_truncate(FILE_HANDLE fh, size_t offset);
+    int         fs_close(FILE_HANDLE fh);
 private:
     bool        tx2bg96(char* cmd);
     bool        BG96Ready(void);
@@ -421,10 +468,10 @@ private:
     UARTSerial  _serial;
     ATCmdParser _parser;
 
-    DigitalOut _bg96_reset;
-    DigitalOut _vbat_3v8_en;
-    DigitalOut _bg96_pwrkey;
-    GNSSLoc _gnss_loc;
+    DigitalOut  _bg96_reset;
+    DigitalOut  _vbat_3v8_en;
+    DigitalOut  _bg96_pwrkey;
+    GNSSLoc     _gnss_loc;
 };
  
 #endif  //__BG96_H__

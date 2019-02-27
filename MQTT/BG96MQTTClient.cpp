@@ -26,6 +26,18 @@ BG96MQTTClient::~BG96MQTTClient()
 //    if (_sublist != NULL) freeSublist(); //maybe a good thing to record it and reactivate it on reconnection instead.
 }
 
+bool BG96MQTTClient::startMQTTClient()
+{
+   return _bg96->startup();
+}
+
+void BG96MQTTClient::stopMQTTClient()
+{
+    disconnect();
+    _bg96->disconnect();
+    _bg96->powerDown();
+}
+
 nsapi_error_t BG96MQTTClient::configure_pdp_context(BG96_PDP_Ctx* pdp_ctx)
 {
     return _bg96->configure_pdp_context(pdp_ctx);

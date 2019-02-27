@@ -9,7 +9,7 @@ public:
 
     virtual bool getGNSSLocation(GNSSLoc& loc); 
 
-    virtual void initializeGNSS(void);
+    virtual bool initializeGNSS(void);
 
 };
 

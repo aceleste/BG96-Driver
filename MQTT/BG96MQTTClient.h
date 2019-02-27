@@ -101,6 +101,10 @@ public:
     BG96MQTTClient(BG96* bg96, BG96TLSSocket* tls);
     ~BG96MQTTClient();
 
+    bool startMQTTClient();
+
+    void stopMQTTClient();
+
     /** Open a network socket
      *
      *  @param          char* [at least 40 long]

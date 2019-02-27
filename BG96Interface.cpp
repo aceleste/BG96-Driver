@@ -163,6 +163,8 @@ BG96Interface::BG96Interface(void) :
     #endif
     _tls = NULL;
     _mqtt = NULL;
+    _power_off = 0;
+    _fs_imp = new FSImplementation(&_BG96);
 }
 
 /** ----------------------------------------------------------
@@ -172,6 +174,9 @@ BG96Interface::BG96Interface(void) :
 */
 BG96Interface::~BG96Interface()
 {
+    if (_fs_imp != NULL) delete(_fs_imp);
+    if (_mqtt != NULL) delete(_mqtt);
+    if (_tls != NULL) delete(_tls);
 }
 
 /** ----------------------------------------------------------
@@ -277,6 +282,25 @@ int BG96Interface::disconnect(void)
     dbgIO_unlock;
     debugOutput(DBGMSG_DRV,"BG96Interface::disconnect EXIT");
     return ret? NSAPI_ERROR_OK:NSAPI_ERROR_DEVICE_ERROR;
+}
+
+bool BG96Interface::powerDown(void)
+{
+    if (_power_off_allowed == false) return false;
+    disconnect();
+    _BG96.powerDown();
+    return true;
+}
+
+void BG96Interface::allowPowerOff(void)
+{
+    _power_off_allowed = true;
+    _power_off++;
+}
+
+void BG96Interface::disallowPowerOff(void)
+{
+    if(--_power_off == 0) _power_off_allowed = false;
 }
 
 int BG96Interface::get_rssi()
@@ -1005,12 +1029,17 @@ void BG96Interface::_eq_schedule(void)
     if( scheduled_events < BG96_SOCKET_COUNT ) {
         scheduled_events++;
         _bg96_queue.call_in(EQ_FREQ,mbed::Callback<void()>((BG96Interface*)this,&BG96Interface::g_eq_event));
-        }
+    }
 }
 
 bool BG96Interface::initializeBG96(void)
 {
     return _BG96.startup();
+}
+
+bool BG96Interface::initializeGNSS(void)
+{
+    return _BG96.powerOnGNSS();
 }
 
 bool BG96Interface::getGNSSLocation(GNSSLoc& loc)
@@ -1051,4 +1080,149 @@ BG96MQTTClient * BG96Interface::getBG96MQTTClient(BG96TLSSocket* tls)
     if (tls == NULL) tls = getBG96TLSSocket();
     _mqtt = new BG96MQTTClient(bg96, tls);
     return _mqtt;
+}
+
+size_t BG96Interface::fs_free_size()
+{
+    size_t freesize;
+    disallowPowerOff();
+    freesize = _fs_imp->fs_free_size();
+    allowPowerOff();
+    return freesize;
+}
+
+size_t BG96Interface::fs_total_size()
+{
+    size_t totalsize;
+    disallowPowerOff();
+    totalsize = _fs_imp->fs_total_size();
+    allowPowerOff();
+    return totalsize;   
+}
+
+int BG96Interface::fs_total_number_of_files()
+{
+    int nsize;
+    disallowPowerOff();
+    nsize = _fs_imp->fs_total_number_of_files();
+    allowPowerOff();
+    return nsize;     
+}
+
+size_t BG96Interface::fs_total_size_of_files()
+{
+    size_t totalsize;
+    disallowPowerOff();
+    totalsize = _fs_imp->fs_total_size_of_files();
+    allowPowerOff();
+    return totalsize;
+}
+
+size_t BG96Interface::fs_file_size(const char *filename)
+{
+    size_t fsize;
+    disallowPowerOff();
+    fsize = _fs_imp->fs_file_size(filename);
+    allowPowerOff();
+    return fsize;    
+}
+
+bool BG96Interface::fs_file_exists(const char *filename)
+{
+    bool fexists;
+    disallowPowerOff();
+    fexists = _fs_imp->fs_file_exists(filename);
+    allowPowerOff();
+    return fexists;     
+}
+
+int BG96Interface::fs_delete_file(const char *filename)
+{
+    int result;
+    disallowPowerOff();
+    result = _fs_imp->fs_delete_file(filename);
+    allowPowerOff();
+    return result;     
+}
+
+int BG96Interface::fs_upload_file(const char *filename, void *data, size_t size)
+{
+    int result;
+    disallowPowerOff();
+    result = _fs_imp->fs_upload_file(filename, data, size);
+    allowPowerOff();
+    return result;    
+}
+
+size_t BG96Interface::fs_download_file(const char *filename, void* data, int16_t &checksum)
+{
+    size_t dsize;
+    disallowPowerOff();
+    dsize = _fs_imp->fs_download_file(filename, data, checksum);
+    allowPowerOff();
+    return dsize;     
+}
+
+bool BG96Interface::fs_open(const char *filename, FILE_MODE mode, FILE_HANDLE &fh)
+{
+    bool rstatus;
+    disallowPowerOff();
+    rstatus = _fs_imp->fs_open(filename, mode, fh);
+    return rstatus;     
+}
+
+bool BG96Interface::fs_close(FILE_HANDLE fh)
+{
+    bool rstatus;
+    rstatus = _fs_imp->fs_close(fh);
+    allowPowerOff(); // we could check rstatus and only allow power off if ok, 
+                     //but this could prevent from powering off and drain battery.
+    return rstatus;  
+}
+
+bool BG96Interface::fs_read(FILE_HANDLE fh, size_t length, void *data)
+{
+    // we are in between an fs_open and fs_close, assuming power is on and cannot be off.
+    return _fs_imp->fs_read(fh, length, data);
+}
+
+bool BG96Interface::fs_write(FILE_HANDLE fh, size_t length, void *data)
+{
+    // we are in between an fs_open and fs_close, assuming power is on and cannot be off.
+    return _fs_imp->fs_write(fh, length, data);    
+}
+
+bool BG96Interface::fs_seek(FILE_HANDLE fh, size_t offset)
+{
+    // we are in between an fs_open and fs_close, assuming power is on and cannot be off.
+    return _fs_imp->fs_seek(fh, offset);   
+}
+
+bool BG96Interface::fs_rewind(FILE_HANDLE fh)
+{
+    // we are in between an fs_open and fs_close, assuming power is on and cannot be off.
+    return _fs_imp->fs_rewind(fh);     
+}
+
+bool BG96Interface::fs_eof(FILE_HANDLE fh)
+{
+    // we are in between an fs_open and fs_close, assuming power is on and cannot be off.
+    return _fs_imp->fs_eof(fh);
+}
+
+bool BG96Interface::fs_get_offset(FILE_HANDLE fh, size_t &offset)
+{
+    // we are in between an fs_open and fs_close, assuming power is on and cannot be off.
+    return _fs_imp->fs_get_offset(fh, offset);   
+}
+
+bool BG96Interface::fs_truncate(FILE_HANDLE fh, size_t offset)
+{
+    // we are in between an fs_open and fs_close, assuming power is on and cannot be off.
+    return _fs_imp->fs_truncate(fh, offset);     
+}
+
+FS_ERROR BG96Interface::fs_get_error()
+{
+    return _fs_imp->fs_get_error();    
 }
