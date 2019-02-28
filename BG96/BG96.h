@@ -34,6 +34,7 @@
 
 #include "mbed.h"
 #include "GNSSLoc.h"
+#include "FSInterface.h"
 
 #ifndef DEFAULT_APN
 #define DEFAULT_APN "m2m.tele2.com"
@@ -132,15 +133,6 @@
 #if !defined(MBED_CONF_BG96_LIBRARY_BG96_GNSS_FIXRATE)
 #define MBED_CONF_BG96_LIBRARY_BG96_GNSS_FIXRATE                  10
 #endif
-
-#define MAX_ERROR_DESCRIPTION_LENGTH 40
-
-typedef struct 
-{
-    char description[MAX_ERROR_DESCRIPTION_LENGTH];
-    int errornum;
-    /* data */
-} BG96_ERROR;
 
 typedef struct {
     int result;

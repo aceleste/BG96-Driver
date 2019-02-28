@@ -85,14 +85,15 @@ typedef struct {
     MQTTString  msg;
 } MQTTMessage;
 
-typedef void(*MQTTMessageHandler)(MQTTMessage* payload) ;
+typedef void(*MQTTMessageHandler)(MQTTMessage* payload, void *) ;
 
 typedef struct {
     int  msg_id;
     int  qos;
     MQTTConstString topic;
     MQTTMessageHandler handler;
-    void* next;
+    void *param;
+    void *next;
 } MQTTSubscription;
 
 class BG96MQTTClient
@@ -137,7 +138,7 @@ public:
 
 
 
-    nsapi_error_t       subscribe(const char* topic, int qos, MQTTMessageHandler handler);
+    nsapi_error_t       subscribe(const char* topic, int qos, MQTTMessageHandler handler, void *param);
     nsapi_error_t       unsubscribe(const char* topic);
     void *              recv();
     nsapi_error_t       publish(MQTTMessage* message);

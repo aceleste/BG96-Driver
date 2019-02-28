@@ -17,8 +17,9 @@ size_t FSImplementation::fs_free_size()
 {
     size_t freesize;
     size_t totalsize;
+    FS_ERROR error;
     if (_bg96->fs_size(freesize, totalsize) == NSAPI_ERROR_OK) {
-        _fs_error = FS_ERROR_NO_ERROR;
+        _fs_error = error;
         return freesize;
     } else {
         _bg96->getError(_fs_error);
@@ -30,8 +31,9 @@ size_t FSImplementation::fs_total_size()
 {
     size_t freesize;
     size_t totalsize;
+    FS_ERROR error;
     if (_bg96->fs_size(freesize, totalsize) == NSAPI_ERROR_OK) {
-        _fs_error = FS_ERROR_NO_ERROR;
+        _fs_error = error;
         return totalsize;
     } else {
         _bg96->getError(_fs_error);
@@ -43,8 +45,9 @@ int FSImplementation::fs_total_number_of_files()
 {
     int nfiles;
     size_t sfiles;
+    FS_ERROR error;
     if (_bg96->fs_nfiles(nfiles, sfiles) == NSAPI_ERROR_OK) {
-        _fs_error = FS_ERROR_NO_ERROR;
+        _fs_error = error;
         return nfiles;
     } else {
         _bg96->getError(_fs_error);
@@ -56,8 +59,9 @@ size_t FSImplementation::fs_total_size_of_files()
 {
     int nfiles;
     size_t sfiles;
+    FS_ERROR error;
     if (_bg96->fs_nfiles(nfiles, sfiles) == NSAPI_ERROR_OK) {
-        _fs_error = FS_ERROR_NO_ERROR;
+        _fs_error = error;
         return sfiles;
     } else {
         _bg96->getError(_fs_error);
@@ -68,8 +72,9 @@ size_t FSImplementation::fs_total_size_of_files()
 size_t FSImplementation::fs_file_size(const char *filename)
 {
     size_t filesize;
+    FS_ERROR error;
     if (_bg96->fs_file_size(filename, filesize) == NSAPI_ERROR_OK) {
-        _fs_error = FS_ERROR_NO_ERROR;
+        _fs_error = error;
         return filesize;
     } else {
         _bg96->getError(_fs_error);
@@ -80,8 +85,9 @@ size_t FSImplementation::fs_file_size(const char *filename)
 bool FSImplementation::fs_file_exists(const char *filename)
 {
     size_t filesize;
+    FS_ERROR error;
     if (_bg96->fs_file_size(filename, filesize) == NSAPI_ERROR_OK) {
-        _fs_error = FS_ERROR_NO_ERROR;
+        _fs_error = error;
         return true;
     } else {
         _bg96->getError(_fs_error);
@@ -92,8 +98,9 @@ bool FSImplementation::fs_file_exists(const char *filename)
 int FSImplementation::fs_delete_file(const char *filename)
 {
     int rc;
+    FS_ERROR error;
     if ((rc = _bg96->fs_delete_file(filename))==0) {
-        _fs_error = FS_ERROR_NO_ERROR;
+        _fs_error = error;
         return 0;
     } else {
         _bg96->getError(_fs_error);
@@ -104,8 +111,9 @@ int FSImplementation::fs_delete_file(const char *filename)
 int FSImplementation::fs_upload_file(const char *filename, void *data, size_t size)
 {
     size_t lsize = size;
+    FS_ERROR error;
     if (_bg96->fs_upload_file(filename, data, lsize)==NSAPI_ERROR_OK && lsize == size) {
-        _fs_error = FS_ERROR_NO_ERROR;
+        _fs_error = error;
         return 0;
     } else {
         _bg96->getError(_fs_error);
@@ -116,8 +124,9 @@ int FSImplementation::fs_upload_file(const char *filename, void *data, size_t si
 size_t FSImplementation::fs_download_file(const char *filename, void* data, int16_t &checksum)
 {
     size_t fsize = fs_file_size(filename);
+    FS_ERROR error;
     if (_bg96->fs_download_file(filename, data, fsize, checksum) == NSAPI_ERROR_OK) {
-        _fs_error = FS_ERROR_NO_ERROR;
+        _fs_error = error;
         return fsize;
     } else {
         _bg96->getError(_fs_error);
@@ -127,19 +136,20 @@ size_t FSImplementation::fs_download_file(const char *filename, void* data, int1
 
 bool FSImplementation::fs_open(const char *filename, FILE_MODE mode, FILE_HANDLE &fh)
 {
-    if(_bg96->fs_open(filename,mode, fh)==NSAPI_ERROR_OK) {
-        _fs_error = FS_ERROR_NO_ERROR;
+    FS_ERROR error;
+    if(_bg96->fs_open(filename,mode,fh)==NSAPI_ERROR_OK) {
+        _fs_error = error;
         return true;
-    } else {
-        _bg96->getError(_fs_error);
-        return false;
     }
+    _bg96->getError(_fs_error);
+    return false;
 }
 
 bool FSImplementation::fs_read(FILE_HANDLE fh, size_t length, void *data)
 {
+    FS_ERROR error;
     if (_bg96->fs_read(fh,length,data)==NSAPI_ERROR_OK) {
-        _fs_error = FS_ERROR_NO_ERROR;
+        _fs_error = error;
         return true;
     } else {
         _bg96->getError(_fs_error);
@@ -149,8 +159,9 @@ bool FSImplementation::fs_read(FILE_HANDLE fh, size_t length, void *data)
 
 bool FSImplementation::fs_write(FILE_HANDLE fh, size_t length, void *data)
 {
+    FS_ERROR error;
     if (_bg96->fs_write(fh,length,data)==NSAPI_ERROR_OK) {
-        _fs_error = FS_ERROR_NO_ERROR;
+        _fs_error = error;
         return true;
     }
     _bg96->getError(_fs_error);
@@ -159,8 +170,9 @@ bool FSImplementation::fs_write(FILE_HANDLE fh, size_t length, void *data)
 
 bool FSImplementation::fs_seek(FILE_HANDLE fh, size_t offset)
 {
+    FS_ERROR error;
     if (_bg96->fs_seek(fh,offset,START_OF_FILE)==NSAPI_ERROR_OK) {
-        _fs_error = FS_ERROR_NO_ERROR;
+        _fs_error = error;
         return true;
     }
     _bg96->getError(_fs_error);
@@ -169,8 +181,9 @@ bool FSImplementation::fs_seek(FILE_HANDLE fh, size_t offset)
 
 bool FSImplementation::fs_rewind(FILE_HANDLE fh)
 {
+    FS_ERROR error;
     if (_bg96->fs_seek(fh,0,START_OF_FILE)==NSAPI_ERROR_OK) {
-        _fs_error = FS_ERROR_NO_ERROR;
+        _fs_error = error;
         return true;
     }
     _bg96->getError(_fs_error);
@@ -179,8 +192,9 @@ bool FSImplementation::fs_rewind(FILE_HANDLE fh)
 
 bool FSImplementation::fs_eof(FILE_HANDLE fh)
 {
+    FS_ERROR error;
     if (_bg96->fs_seek(fh,0,END_OF_FILE)==NSAPI_ERROR_OK) {
-        _fs_error = FS_ERROR_NO_ERROR;
+        _fs_error = error;
         return true;
     }
     _bg96->getError(_fs_error);
@@ -189,8 +203,9 @@ bool FSImplementation::fs_eof(FILE_HANDLE fh)
 
 bool FSImplementation::fs_get_offset(FILE_HANDLE fh, size_t &offset)
 {
+    FS_ERROR error;
     if (_bg96->fs_get_offset(fh, offset)==NSAPI_ERROR_OK) {
-        _fs_error = FS_ERROR_NO_ERROR;
+        _fs_error = error;
         return true;
     }
     _bg96->getError(_fs_error);
@@ -199,8 +214,9 @@ bool FSImplementation::fs_get_offset(FILE_HANDLE fh, size_t &offset)
 
 bool FSImplementation::fs_truncate(FILE_HANDLE fh, size_t offset)
 {
+    FS_ERROR error;
     if (_bg96->fs_truncate(fh, offset)==NSAPI_ERROR_OK) {
-        _fs_error = FS_ERROR_NO_ERROR;
+        _fs_error = error;
         return true;
     }
     _bg96->getError(_fs_error);
@@ -209,8 +225,9 @@ bool FSImplementation::fs_truncate(FILE_HANDLE fh, size_t offset)
 
 bool FSImplementation::fs_close(FILE_HANDLE fh)
 {
+    FS_ERROR error;
     if (_bg96->fs_close(fh)==NSAPI_ERROR_OK) {
-        _fs_error = FS_ERROR_NO_ERROR;
+        _fs_error = error;
         return true;
     }
     _bg96->getError(_fs_error);

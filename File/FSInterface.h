@@ -2,15 +2,23 @@
 #define __FS_INTERFACE_H__
 #include "mbed.h"
 #include <string.h>
-#include "BG96.h"
 
-#define FS_ERROR_NO_ERROR {{0},0}
+#define MAX_ERROR_DESCRIPTION_LENGTH 40
+
+#define FS_ERROR_NO_ERROR {.description = {0}, .errornum = 0}
 
 typedef int32_t FILE_HANDLE;
 
 typedef enum {START_OF_FILE, CURRENT_POSITION, END_OF_FILE} FILE_POS;
 
 typedef enum {CREATE_RW, OVERWRITE_RW, EXISTONLY_RO} FILE_MODE;
+
+typedef struct 
+{
+    char description[MAX_ERROR_DESCRIPTION_LENGTH]={0};
+    int errornum=0;
+    /* data */
+} BG96_ERROR;
 
 typedef BG96_ERROR FS_ERROR;
 

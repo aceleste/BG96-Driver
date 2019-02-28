@@ -241,11 +241,12 @@ nsapi_error_t BG96MQTTClient::disconnect()
    return _bg96->mqtt_disconnect(_ctx.mqtt_ctx_id);
 }
 
-nsapi_error_t BG96MQTTClient::subscribe(const char* topic, int qos, MQTTMessageHandler handler) {
+nsapi_error_t BG96MQTTClient::subscribe(const char* topic, int qos, MQTTMessageHandler handler, void *param) {
     int rc=-1;
     MQTTSubscription* sub = (MQTTSubscription*) malloc(sizeof(MQTTSubscription));
     if (sub == NULL) return NSAPI_ERROR_NO_MEMORY;
     sub->handler = handler;
+    sub->param = param;
     sub->msg_id = getNextMessageId();
     sub->qos = qos;
     sub->topic.payload = topic;
@@ -396,7 +397,7 @@ static void mqtt_task(BG96MQTTClient* client)
                         subp = client->findSubscriptionByTopic(msg->topic.payload);
                         if (subp != NULL && subp->handler != NULL) {
                             //printf("Found handler for the incoming message topic %s.\r\n", msg->topic.payload);
-                            subp->handler(msg); // handler is responsible for freeing memory hold by msg
+                            subp->handler(msg, subp->param); // handler is responsible for freeing memory hold by msg
                         } else {
                             printf("Couldn't find handler for subscription topic %s.\r\n",msg->topic.payload);
                         }

@@ -1508,14 +1508,14 @@ int BG96::fs_download_file(const char *filename, void* data, size_t &filesize, i
         return rc;
     } else {
         char *c = (char *)data;
-        for (int i = 0; i < filesize; i++) {
+        for (unsigned int i = 0; i < filesize; i++) {
             *c++ = _parser.getc();
         }
     }
     _parser.set_timeout(BG96_AT_TIMEOUT);
     size_t fsize;
     int16_t cs;
-    done = _parser.recv("+QFDWL: %ul,%X\r\n", &fsize, &cs);
+    done = _parser.recv("+QFDWL: %ul,%hX\r\n", &fsize, &cs);
     if (done && filesize == fsize) {
         filesize = fsize;
         checksum = cs;
@@ -1538,7 +1538,7 @@ int BG96::fs_open(const char *filename, FILE_MODE mode, FILE_HANDLE &fh)
     done = _parser.send("AT+QFOPEN=\"%s\",%d", filename, mode);
     if (done) {
         FILE_HANDLE fhandle;
-        done = _parser.recv("+QFOPEN: %d\r\n", &fhandle) && _parser.recv("OK");
+        done = _parser.recv("+QFOPEN: %ld\r\n", &fhandle) && _parser.recv("OK");
         if (done) {
             fh = fhandle;
             rc = NSAPI_ERROR_OK;
@@ -1557,7 +1557,7 @@ int BG96::fs_read(FILE_HANDLE fh, size_t length, void *data)
     bool done;
     _bg96_mutex.lock();
     _parser.set_timeout(2000);
-    done = _parser.send("AT+QFREAD=%d, %ul", fh, length) && _parser.recv("CONNECT");
+    done = _parser.send("AT+QFREAD=%ld, %ul", fh, length) && _parser.recv("CONNECT");
     if (!done){
         rc = NSAPI_ERROR_DEVICE_ERROR;
         _parser.set_timeout(BG96_AT_TIMEOUT);
@@ -1565,7 +1565,7 @@ int BG96::fs_read(FILE_HANDLE fh, size_t length, void *data)
         return rc;
     }
     char *c = (char *)data;
-    for (int i = 0; i < length; i++) {
+    for (unsigned int i = 0; i < length; i++) {
         *c++ = _parser.getc();
     }
     done = _parser.recv("OK");
@@ -1585,7 +1585,7 @@ int BG96::fs_write(FILE_HANDLE fh, size_t length, void *data)
     bool done;
     _bg96_mutex.lock();
     _parser.set_timeout(5000);
-    done = _parser.send("AT+QFWRITE=%d, %ul", fh, length) && _parser.recv("CONNECT");
+    done = _parser.send("AT+QFWRITE=%ld, %ul", fh, length) && _parser.recv("CONNECT");
     if (!done){
         rc = NSAPI_ERROR_DEVICE_ERROR;
         _parser.set_timeout(BG96_AT_TIMEOUT);
@@ -1593,7 +1593,7 @@ int BG96::fs_write(FILE_HANDLE fh, size_t length, void *data)
         return rc;
     }
     char *c = (char *)data;
-    for (int i = 0; i < length; i++) {
+    for (unsigned int i = 0; i < length; i++) {
         _parser.putc(*c++);
     }
     done = _parser.recv("OK");
@@ -1612,7 +1612,7 @@ int BG96::fs_seek(FILE_HANDLE fh, size_t offset, FILE_POS position)
     int rc = NSAPI_ERROR_DEVICE_ERROR;
     bool done;
     _bg96_mutex.lock();
-    done = _parser.send("AT+QFSEEK=%d,%ul,%d", fh, offset, position) && _parser.recv("OK");
+    done = _parser.send("AT+QFSEEK=%ld,%ul,%d", fh, offset, position) && _parser.recv("OK");
     if (done) rc = NSAPI_ERROR_OK;
     _bg96_mutex.unlock();
     return rc;
@@ -1623,7 +1623,7 @@ int BG96::fs_get_offset(FILE_HANDLE fh, size_t &offset)
     int rc = NSAPI_ERROR_DEVICE_ERROR;
     bool done;
     _bg96_mutex.lock();
-    done = _parser.send("AT+QFPOSITION=%d", fh);
+    done = _parser.send("AT+QFPOSITION=%ld", fh);
     if (done) {
         size_t loff=0;
         done = _parser.recv("+QFPOSITION: %ul\r\n", &loff);
@@ -1644,7 +1644,7 @@ int BG96::fs_truncate(FILE_HANDLE fh, size_t offset)
     bool done;
     _bg96_mutex.lock();
     _parser.set_timeout(2000);
-    done = _parser.send("AT+QFTUCAT=%d", fh) && _parser.recv("OK");
+    done = _parser.send("AT+QFTUCAT=%ld", fh) && _parser.recv("OK");
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
     return done ? NSAPI_ERROR_DEVICE_ERROR : NSAPI_ERROR_OK;
@@ -1656,8 +1656,9 @@ int BG96::fs_close(FILE_HANDLE fh)
     bool done;
     _bg96_mutex.lock();
     _parser.set_timeout(2000);
-    done = _parser.send("AT+QFCLOSE=%d", fh) && _parser.recv("OK");
+    done = _parser.send("AT+QFCLOSE=%ld", fh) && _parser.recv("OK");
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
     return done ? NSAPI_ERROR_DEVICE_ERROR : NSAPI_ERROR_OK;   
 }
+
