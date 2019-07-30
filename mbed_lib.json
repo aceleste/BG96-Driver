@@ -73,7 +73,10 @@
          },
          "NUCLEO_L496ZG": {
              "bg96-tx": "D1",
-             "bg96-rx": "D0"
+             "bg96-rx": "D0",
+             "bg96-pwrkey": "D10",
+             "bg96-reset": "D7",
+             "bg96-wake": "D11"
          },
          "NUCLEO_L476RG": {
             "bg96-tx": "PA_9",

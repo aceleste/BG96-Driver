@@ -5,11 +5,11 @@
 class GNSSInterface
 {
 public:
-    virtual ~GNSSInterface() {};
+	virtual ~GNSSInterface() {}
 
-    virtual bool getGNSSLocation(GNSSLoc& loc); 
+    virtual bool getGNSSLocation(GNSSLoc& loc)=0;
 
-    virtual bool initializeGNSS(void);
+    virtual bool initializeGNSS(void)=0;
 
 };
 

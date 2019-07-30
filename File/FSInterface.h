@@ -25,65 +25,65 @@ typedef BG96_ERROR FS_ERROR;
 class FSInterface
 {
 public:
-    virtual ~FSInterface() {};
+	virtual ~FSInterface() {}
 
     /** Returns the free space on UFS
      *
      *
      */
-    virtual size_t fs_free_size();
+    virtual size_t fs_free_size()=0;
 
     /** Returns the total space of UFS
      *
      *
      */
-    virtual size_t fs_total_size();
+    virtual size_t fs_total_size()=0;
 
     /** Returns the total number of files on UFS
      *
      *
      */
-    virtual int fs_total_number_of_files();
+    virtual int fs_total_number_of_files()=0;
 
     /** Returns the total space used by files on UFS
      *
      *
      */
-    virtual size_t fs_total_size_of_files();
+    virtual size_t fs_total_size_of_files()=0;
 
     /** Returns the free space on UFS
      *
      *  @param filename The full path and filename of the file
      */
-    virtual size_t fs_file_size(const char *filename);
+    virtual size_t fs_file_size(const char *filename)=0;
 
-    virtual bool fs_file_exists(const char *filename);
+    virtual bool fs_file_exists(const char *filename)=0;
 
-    virtual int fs_delete_file(const char *filename);
+    virtual int fs_delete_file(const char *filename)=0;
 
-    virtual int fs_upload_file(const char *filename, void *data, size_t size);
+    virtual int fs_upload_file(const char *filename, void *data, size_t size)=0;
 
-    virtual size_t fs_download_file(const char *filename, void* data, int16_t &checksum);
+    virtual size_t fs_download_file(const char *filename, void* data, int16_t &checksum)=0;
 
-    virtual bool fs_open(const char *filename, FILE_MODE mode, FILE_HANDLE &fh); 
+    virtual bool fs_open(const char *filename, FILE_MODE mode, FILE_HANDLE &fh)=0;
 
-    virtual bool fs_read(FILE_HANDLE fh, size_t length, void *data);
+    virtual bool fs_read(FILE_HANDLE fh, size_t length, void *data)=0;
 
-    virtual bool fs_write(FILE_HANDLE fh, size_t length, void *data);
+    virtual bool fs_write(FILE_HANDLE fh, size_t length, void *data)=0;
 
-    virtual bool fs_seek(FILE_HANDLE fh, size_t offset);
+    virtual bool fs_seek(FILE_HANDLE fh, size_t offset)=0;
 
-    virtual bool fs_rewind(FILE_HANDLE fh);
+    virtual bool fs_rewind(FILE_HANDLE fh)=0;
 
-    virtual bool fs_eof(FILE_HANDLE fh);
+    virtual bool fs_eof(FILE_HANDLE fh)=0;
 
-    virtual bool fs_get_offset(FILE_HANDLE fh, size_t &offset);
+    virtual bool fs_get_offset(FILE_HANDLE fh, size_t &offset)=0;
 
-    virtual bool fs_truncate(FILE_HANDLE fh, size_t offset);
+    virtual bool fs_truncate(FILE_HANDLE fh, size_t offset)=0;
 
-    virtual bool fs_close(FILE_HANDLE fh);
+    virtual bool fs_close(FILE_HANDLE fh)=0;
 
-    virtual FS_ERROR fs_get_error();
+    virtual FS_ERROR fs_get_error()=0;
 
 protected:
 

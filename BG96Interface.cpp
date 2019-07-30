@@ -403,7 +403,6 @@ int BG96Interface::socket_listen(void *handle, int backlog)
     BG96SOCKET *socket = (BG96SOCKET *)handle;    
     nsapi_error_t ret = NSAPI_ERROR_OK;
 
-    backlog = backlog;  //avoid unused error from compiler
     debugOutput(DBGMSG_DRV,"BG96Interface::socket_listen, socket %d listening %s ENTER", 
                  socket->id, socket->connected? "YES":"NO");
     if( !socket->connected ) {
