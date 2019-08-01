@@ -438,7 +438,7 @@ private:
     BG96TLSSocket* _tls;
     BG96MQTTClient* _mqtt;
     bool        _power_off_allowed;
-    #if MBED_CONF_APP_BG96_DEBUG == true
+    #if  MBED_CONF_BG96_LIBRARY_BG96_DEBUG == true
     Mutex      dbgout_mutex;
     int        g_debug;                                 //flag for debug settings
     void       _dbDump_arry( const uint8_t* data, unsigned int size );

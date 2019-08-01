@@ -71,7 +71,7 @@
 // The following are only used when debug is eabled.
 //
 
-#if MBED_CONF_APP_BG96_DEBUG == true
+#if MBED_CONF_BG96_LIBRARY_BG96_DEBUG == true
 #define debugOutput(...)      _dbOut(__VA_ARGS__)
 #define debugDump_arry(...)   _dbDump_arry(__VA_ARGS__)
 
@@ -136,7 +136,7 @@ void BG96Interface::_dbOut(int who, const char* format, ...)
 #define debugOutput(...)      {/* __VA_ARGS__ */}
 #define debugDump_arry(...)   {/* __VA_ARGS__ */}
 
-#endif  //MBED_CONF_APP_BG96_DEBUG == true
+#endif  //MBED_CONF_BG96_LIBRARY_BG96_DEBUG == true
 
 
 /** --------------------------------------------------------
@@ -148,7 +148,7 @@ BG96Interface::BG96Interface(void) :
     g_isInitialized(NSAPI_ERROR_NO_CONNECTION),
     g_bg96_queue_id(-1),
     scheduled_events(0),
-    _BG96(true)
+    _BG96(MBED_CONF_BG96_LIBRARY_BG96_DEBUG)
 {
     for( int i=0; i<BG96_SOCKET_COUNT; i++ ) {
         g_sock[i].id = -1;
@@ -158,8 +158,8 @@ BG96Interface::BG96Interface(void) :
         g_socRx[i].m_rx_disTO = false;
         g_socTx[i].m_tx_state = TX_IDLE;
         }
-    #if MBED_CONF_APP_BG96_DEBUG == true
-    g_debug=0;
+    #if MBED_CONF_BG96_LIBRARY_BG96_DEBUG == true
+    g_debug=MBED_CONF_BG96_LIBRARY_BG96_DEBUG_SETTING;
     #endif
     _tls = NULL;
     _mqtt = NULL;
@@ -193,12 +193,14 @@ nsapi_error_t BG96Interface::connect(void)
     nsapi_error_t ret = NSAPI_ERROR_OK;
 //    char ipaddress[16];
     debugOutput(DBGMSG_DRV,"BG96Interface::connect(void) ENTER.");
-    if( g_isInitialized == NSAPI_ERROR_NO_CONNECTION )
+    if( g_isInitialized == NSAPI_ERROR_NO_CONNECTION ) {
 #if defined(MBED_CONF_APP_BG96_APN_USER) && defined(MBED_CONF_APP_BG96_APN_PWD)
         ret = connect(DEFAULT_APN, NULL, NULL); //MBED_CONF_APP_BG96_APN_USER, MBED_CONF_APP_BG96_APN_PWD);
 #else
+    	getRevision();
         ret = connect(DEFAULT_APN, NULL, NULL);
 #endif
+    }
     //printf("[BG96Interface]: MAC address = %s\r\n", get_mac_address());
     //printf("[BG96Interface]: IP address = %s\r\n", get_ip_address());
     while(!_BG96.isConnected()) {}
@@ -507,7 +509,7 @@ int BG96Interface::getsockopt(void *handle, int level, int optname, void *optval
 */
 void BG96Interface::doDebug( int v )
 {
-    #if MBED_CONF_APP_BG96_DEBUG == true
+    #if MBED_CONF_BG96_LIBRARY_BG96_DEBUG == true
     gvupdate_mutex.lock();
     _BG96.doDebug(v);
     g_debug= v;

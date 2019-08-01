@@ -45,7 +45,7 @@
 //
 // if DEBUG is enabled, these macros are used to dump data arrays
 //
-#if MBED_CONF_APP_BG96_DEBUG == true
+#if MBED_CONF_BG96_LIBRARY_BG96_DEBUG == true
 #define TOSTR(x) #x
 #define INTSTR(x) TOSTR(x)
 #define DUMP_LOC (char*)(__FILE__ ":" INTSTR(__LINE__))
@@ -261,14 +261,20 @@ int BG96::getCSServiceStatus()
 */
 bool BG96::startup(void)
 {
-       int   done=false;
-    
-    if( !BG96Ready() )
-        return false;
-        
-    _bg96_mutex.lock();
-    _parser.set_timeout(2000);//BG96_1s_WAIT
-    if( tx2bg96((char*)"ATE0") ) {
+   int   done=false;
+   int i = 255;
+   bool registered= false;
+   bool registration = false;
+   int reg_en;
+   int stat;
+   int techno = 2; //0->Cat.M1, 1->Cat.NB1, 2->GSM
+   char pin_status[15];
+   if( !BG96Ready() )
+		return false;
+   while (!registered && techno < 3) {
+	   _bg96_mutex.lock();
+	   _parser.set_timeout(2000);//BG96_1s_WAIT
+	   if( tx2bg96((char*)"ATE0") ) {
 /*
 AT+QGMR // check firmware version
 AT+CFUN=0 // disable radio function
@@ -285,29 +291,107 @@ AT+QENG = "servingcell“ // check you’re well registered on cat NB now
 AT+COPS? // answer +COPS: 1,0,"F SFR",9 if well registered otherwise force with next command
 AT+COPS=1,2,"20810",9 //optional in case you’re not properly registered with right ID(20810 for SFR in France) 
 */
-        tx2bg96((char*)"AT+QGMR"); // request product info
-        tx2bg96((char*)"AT+CFUN=0"); //
-        tx2bg96((char*)"AT+QCFG=\"band\",0,0,80000,1");
-        tx2bg96((char*)"AT+QCFG=\"nwscanmode\",3,1");
-        tx2bg96((char*)"AT+QCFG=\"nwscanseq\",03,1");
-        tx2bg96((char*)"AT+QCFG=\"iotopmode\",1,1");
-        tx2bg96((char*)"AT+QCFG=\"servicedomain\",1,1");
-        tx2bg96((char*)"AT+QPSMS=0");
-        tx2bg96((char*)"AT+QCSCON=1");
-        tx2bg96((char*)"AT+CFUN=1");
-        tx2bg96((char*)"AT+CGDCONT=1,\"IP\",\"\"");
-        tx2bg96((char*)"AT+QENG= \"servingcell\"");
-        if (_parser.send("AT+COPS?")) {
-            int mode, format, act;
-            char cops[80]={0};
-            char operstr[40];
-            if (_parser.recv("+COPS: %s\r\n", cops)) {
-                if (sscanf(cops,"%d,%d,\"%[^\"],%d",&mode, &format, operstr, &act) ==1) { // we haven't registered to a network operator
-                    done = tx2bg96((char*)"AT+COPS=0,2,\"\",9"); // Force an automatic registration to a NB compatible network.
-                }
+            tx2bg96((char*)"AT+CGREG=0"); //Disable network registration and location information URC
+            //tx2bg96((char*)"AT+QCFG=\"band\",F,400A0E189F,A0E189F,1");
+            /*switch (techno) {
+            case 0:
+                tx2bg96((char*)"AT+QCFG=\"nwscanseq\",02,1");
+                tx2bg96((char*)"AT+QCFG=\"nwscanmode\",3,1"); // LTE only
+                tx2bg96((char*)"AT+QCFG=\"iotopmode\",0,1"); // Search mode Cat.M1
+                break;
+            case 1:
+                tx2bg96((char*)"AT+QCFG=\"nwscanseq\",03,1");
+                tx2bg96((char*)"AT+QCFG=\"nwscanmode\",3,1"); // LTE only
+                tx2bg96((char*)"AT+QCFG=\"iotopmode\",1,1");  // Search mode Cat.NB1
+                break;
+            case 2:
+                tx2bg96((char*)"AT+QCFG=\"nwscanseq\",01,1");
+                tx2bg96((char*)"AT+QCFG=\"nwscanmode\",1,1"); // GSM only
+                break;
             }
-        }
-    }
+
+            tx2bg96((char*)"AT+QCFG=\"servicedomain\",1,1"); // Packet Service only
+            if (_parser.send("AT+CPIN?")) {
+            	_parser.recv("+CPIN: \"%[^\"]", pin_status);
+            	if (!strcmp("READY", pin_status)) printf("PIN has to be entered one way or another.\r\n");
+            	_parser.recv("0K");
+            }*/
+            //tx2bg96((char*)"AT+COPS=0");
+            //tx2bg96((char*)"AT+CPSMS=0");
+            //tx2bg96((char*)"AT+QCSCON=0");
+            //tx2bg96((char*)"AT+CGDCONT=1,\"IP\"");
+            //tx2bg96((char*)"AT+CFUN=1");
+//            tx2bg96((char*)"AT+QENG= \"servingcell\"");
+
+
+            while (i >0 && !registration) {
+                if (_parser.send("AT+CGREG?")) {
+                    done = _parser.recv("+CGREG: %d, %d", &reg_en, &stat);
+                    if (done) {
+                        switch (stat) {
+                        case 0:
+                            printf("BG96: The modem is yet unregistered.\r\n");
+                            break;
+                        case 1:
+                            printf("BG96: The modem is successfully registered.\r\n");
+                            registration = true;
+                            break;
+                        case 2:
+                            printf("BG96: The modem is trying to register.\r\n");
+                            break;
+                        case 3:
+                            printf("BG96: The modem registration has been denied.\r\n");
+                            break;
+                        case 4:
+                            printf("BG96: Registration status unknown.\r\n");
+                            break;
+                        case 5:
+                            printf("BG96: The modem is registered in roaming mode.\r\n");
+                            registration = true;
+                            break;
+                        default:
+                            break;
+                        }
+                    }
+                }
+                wait(0.5);
+                i--;
+            }
+            if (registration){
+                int mode, format, techno;
+                char telco[15];
+                if (_parser.send("AT+COPS?")) {
+                    done = _parser.recv("+COPS: %d, %d, \"%[^\"]\", %d", &mode, &format, telco, &techno);
+                    if (done) {
+                        printf("Operator is %s\r\n", telco);
+                        switch (techno){
+                        case 0:
+                        case 3:
+                            printf("Technology is GSM\r\n");
+                            break;
+                        case 8:
+                        case 4:
+                            printf("Technology is LTE Cat.M1\r\n");
+                            break;
+                        case 9:
+                        case 5:
+                            printf("Technology is LTE Cat.NB1\r\n");
+                            break;
+                        default:
+                            break;
+                        }
+                    }
+                }
+                tx2bg96((char*)"AT+CTZU=1"); // Automatic Time Zone Update
+                done = true;
+                registered = true;
+            } else {
+                registered = false;
+                done = false;
+            }
+       }
+       techno++;
+	}
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
     if (done) { 
@@ -326,8 +410,8 @@ AT+COPS=1,2,"20810",9 //optional in case you’re not properly registered with r
 */
 nsapi_error_t BG96::connect(const char *apn, const char *username, const char *password)
 {
-    char pdp_string[100];
-    int i = 0;
+//    char pdp_string[100];
+//    int i = 0;
     int done = -1;
     int type, auth;
     char lapn[40];

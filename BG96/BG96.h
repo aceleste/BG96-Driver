@@ -37,7 +37,7 @@
 #include "FSInterface.h"
 
 #ifndef DEFAULT_APN
-#define DEFAULT_APN "m2m.tele2.com"
+#define DEFAULT_APN "TM"
 #endif
 
 #ifndef DEFAULT_PDP
