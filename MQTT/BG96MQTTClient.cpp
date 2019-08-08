@@ -1,13 +1,14 @@
 #include "BG96MQTTClient.h"
 #include "BG96.h"
 #include "BG96TLSSocket.h"
+#include "Thread.h"
+#include "cmsis_os2.h"
 #include "nsapi_types.h"
 
 #define RETURN_RC_IF_NEG(A,B)   A = B; \
                                 if (A < 0) return A
 
-BG96MQTTClient::BG96MQTTClient(BG96* bg96, BG96TLSSocket* tls) :
-    _mqtt_thread(osPriorityNormal,2048,NULL,NULL)
+BG96MQTTClient::BG96MQTTClient(BG96* bg96, BG96TLSSocket* tls) //mqtt_thread(osPriorityNormal,2048,NULL,NULL)
 {
     _bg96 = bg96;
     _tls  = tls;
@@ -17,12 +18,13 @@ BG96MQTTClient::BG96MQTTClient(BG96* bg96, BG96TLSSocket* tls) :
     _ctx.mqtt_ctx_id = 0;
     _sublist = NULL;
     _nmid = 1;
+    _mqtt_thread = NULL;
+    _running = false;
 }
 
 BG96MQTTClient::~BG96MQTTClient()
 {
-    _running = false;
-    _mqtt_thread.join();
+    stopRunning();
 //    if (_sublist != NULL) freeSublist(); //maybe a good thing to record it and reactivate it on reconnection instead.
 }
 
@@ -194,7 +196,10 @@ nsapi_error_t BG96MQTTClient::connect(MQTTConnect_Ctx* ctx)
                                                ctx->username.payload,
                                                ctx->password.payload,
                                                result);
-    if (result.result == 0 && result.rc == 0) return NSAPI_ERROR_OK;
+    if (result.result == 0 && result.rc == 0)  {
+        _running = true;
+        return NSAPI_ERROR_OK;
+    }
     printf("Connect return result: %d and error code: %d\r\n", result.result, result.rc);
     switch (result.rc) {
         case BG96_MQTT_CLIENT_CONNECT_ERROR_BAD_CREDENTIALS:
@@ -238,6 +243,7 @@ nsapi_error_t BG96MQTTClient::connect(MQTTConnect_Ctx* ctx)
 
 nsapi_error_t BG96MQTTClient::disconnect()
 {
+   stopRunning();
    return _bg96->mqtt_disconnect(_ctx.mqtt_ctx_id);
 }
 
@@ -381,6 +387,19 @@ bool BG96MQTTClient::isRunning()
     return ret;
 }
 
+void BG96MQTTClient::stopRunning()
+{
+    _mqtt_mutex.lock();
+    _running = false;
+    _mqtt_mutex.unlock();
+    if (_mqtt_thread != NULL) {
+        _mqtt_thread->terminate();
+        _mqtt_thread->join();
+        delete _mqtt_thread;
+        _mqtt_thread = NULL;
+    }
+}
+
 static void mqtt_task(BG96MQTTClient* client)
 {
     MQTTSubscription* subp = NULL;
@@ -405,9 +424,9 @@ static void mqtt_task(BG96MQTTClient* client)
                         printf("Topic of received message is NULL.\r\n");
                     }
                 }
-                if (msg != NULL) free(msg);
+                if (msg != NULL) msg = NULL;
             }
-            wait(10); //Check every 10s - sleep in between
+            wait(2);
         }
     } 
 }
@@ -417,6 +436,9 @@ osStatus BG96MQTTClient::dowork()
     _mqtt_mutex.lock();
     _running = true;
     _mqtt_mutex.unlock();
-    return _mqtt_thread.start(callback(mqtt_task, this));
+    _mqtt_thread = new Thread(callback(mqtt_task, this));
+    if (_mqtt_thread != NULL) return osOK;
+    return -1;
 }
+
 

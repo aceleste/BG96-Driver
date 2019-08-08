@@ -73,7 +73,7 @@
 #endif
 
 char mqtt_payload[1548];
-char mqtt_topic[80];
+char mqtt_topic[256];
 MQTTMessage mqtt_msg;
 
 /** ----------------------------------------------------------
@@ -262,68 +262,42 @@ int BG96::getCSServiceStatus()
 bool BG96::startup(void)
 {
    int   done=false;
-   int i = 255;
-   bool registered= false;
-   bool registration = false;
-   int reg_en;
-   int stat;
-   int techno = 2; //0->Cat.M1, 1->Cat.NB1, 2->GSM
-   char pin_status[15];
+
    if( !BG96Ready() )
 		return false;
-   while (!registered && techno < 3) {
-	   _bg96_mutex.lock();
-	   _parser.set_timeout(2000);//BG96_1s_WAIT
-	   if( tx2bg96((char*)"ATE0") ) {
-/*
-AT+QGMR // check firmware version
-AT+CFUN=0 // disable radio function
-AT+QCFG="band",0,0,80000,1 //here band 20 is set
-AT+QCFG="nwscanmode",3,1 //here NB network only is set
-AT+QCFG="nwscanseq",03,1
-AT+QCFG="iotopmode",1,1 // PS only
-AT+QCFG="servicedomain",1,1
-AT+QPSMS=0 //deactivate PSM for test
-AT+QCSCON=1
-AT+CFUN=1 => at this point should be registered to the NB network
-AT+CGDCONT=1,"IP","" //APN should be provisionned on the M2M sim card
-AT+QENG = "servingcell“ // check you’re well registered on cat NB now
-AT+COPS? // answer +COPS: 1,0,"F SFR",9 if well registered otherwise force with next command
-AT+COPS=1,2,"20810",9 //optional in case you’re not properly registered with right ID(20810 for SFR in France) 
+ 
+    done = configureGNSS();
+    return done;
+ }
+
+
+/** ----------------------------------------------------------
+* @brief  connect to APN
+* @param  apn string 
+* @param  username (not used)
+* @param  password (not used)
+* @retval nsapi_error_t
 */
+nsapi_error_t BG96::connect(const char *apn, const char *username, const char *password)
+{
+    int i = 255;
+    bool registered= false;
+    bool registration = false;
+    int reg_en;
+    int stat;
+    int techno = 2; //0->Cat.M1, 1->Cat.NB1, 2->GSM
+    char pin_status[15];
+    int done = -1;
+    int type, auth;
+    char lapn[40];
+    char lusername[20];
+    char lpassword[20];
+    
+	_bg96_mutex.lock();
+	_parser.set_timeout(2000);//BG96_1s_WAIT
+    while (!registered && techno < 3) {
+	   if( tx2bg96((char*)"ATE0") ) {
             tx2bg96((char*)"AT+CGREG=0"); //Disable network registration and location information URC
-            //tx2bg96((char*)"AT+QCFG=\"band\",F,400A0E189F,A0E189F,1");
-            /*switch (techno) {
-            case 0:
-                tx2bg96((char*)"AT+QCFG=\"nwscanseq\",02,1");
-                tx2bg96((char*)"AT+QCFG=\"nwscanmode\",3,1"); // LTE only
-                tx2bg96((char*)"AT+QCFG=\"iotopmode\",0,1"); // Search mode Cat.M1
-                break;
-            case 1:
-                tx2bg96((char*)"AT+QCFG=\"nwscanseq\",03,1");
-                tx2bg96((char*)"AT+QCFG=\"nwscanmode\",3,1"); // LTE only
-                tx2bg96((char*)"AT+QCFG=\"iotopmode\",1,1");  // Search mode Cat.NB1
-                break;
-            case 2:
-                tx2bg96((char*)"AT+QCFG=\"nwscanseq\",01,1");
-                tx2bg96((char*)"AT+QCFG=\"nwscanmode\",1,1"); // GSM only
-                break;
-            }
-
-            tx2bg96((char*)"AT+QCFG=\"servicedomain\",1,1"); // Packet Service only
-            if (_parser.send("AT+CPIN?")) {
-            	_parser.recv("+CPIN: \"%[^\"]", pin_status);
-            	if (!strcmp("READY", pin_status)) printf("PIN has to be entered one way or another.\r\n");
-            	_parser.recv("0K");
-            }*/
-            //tx2bg96((char*)"AT+COPS=0");
-            //tx2bg96((char*)"AT+CPSMS=0");
-            //tx2bg96((char*)"AT+QCSCON=0");
-            //tx2bg96((char*)"AT+CGDCONT=1,\"IP\"");
-            //tx2bg96((char*)"AT+CFUN=1");
-//            tx2bg96((char*)"AT+QENG= \"servingcell\"");
-
-
             while (i >0 && !registration) {
                 if (_parser.send("AT+CGREG?")) {
                     done = _parser.recv("+CGREG: %d, %d", &reg_en, &stat);
@@ -392,75 +366,27 @@ AT+COPS=1,2,"20810",9 //optional in case you’re not properly registered with r
        }
        techno++;
 	}
-    _parser.set_timeout(BG96_AT_TIMEOUT);
-    _bg96_mutex.unlock();
-    if (done) { 
-        done = configureGNSS();
-    }
-    return done;
- }
+	if (done) {
+        printf("Checking APN ...\r\n");
+        _parser.set_timeout(5000);
+        if(_parser.send("AT+QICSGP=%d",_contextID)) {
+            done = _parser.recv("+QICSGP: %d,\"%[^\"]\",\"%[^\"]\",\"%[^\"]\",%d\r\n", &type, lapn, lusername, lpassword, &auth);
+        }
+        if (done) _parser.recv("OK");
 
-
-/** ----------------------------------------------------------
-* @brief  connect to APN
-* @param  apn string 
-* @param  username (not used)
-* @param  password (not used)
-* @retval nsapi_error_t
-*/
-nsapi_error_t BG96::connect(const char *apn, const char *username, const char *password)
-{
-//    char pdp_string[100];
-//    int i = 0;
-    int done = -1;
-    int type, auth;
-    char lapn[40];
-    char lusername[20];
-    char lpassword[20];
-//	char* search_pt;
-//	uint32_t time;
-//	int pdp_retry = 0;
-	
-    _bg96_mutex.lock();
-//    memset(pdp_string, 0, sizeof(pdp_string));
-	printf("Checking APN ...\r\n");
-    _parser.set_timeout(5000);
-	if(_parser.send("AT+QICSGP=%d",_contextID)) {
-        done = _parser.recv("+QICSGP: %d,\"%[^\"]\",\"%[^\"]\",\"%[^\"]\",%d\r\n", &type, lapn, lusername, lpassword, &auth);
-    }
-    if (done) _parser.recv("OK");
-	// while(1){
-	// 		//read and store answer
-	// 	_parser.read(&pdp_string[i], 1);
-	// 	i++;
-	// 		//if OK rx, end string; if not, program stops
-    //     search_pt = strstr(pdp_string, "OK\r\n");
-	// 	if (search_pt != 0)
-	// 	{
-    //         printf("search_pt != 0.\r\n");
-    //         return NSAPI_ERROR_DEVICE_ERROR;
-            
-	// 	} else {
-    //         printf("search_pt = 0 \r\n");
-    //         break;
-    //     }
-	// 	//TODO: add timeout if no aswer from module!!
-    // }
-	// printf("pdp_string: %s\r\n", pdp_string);
-	// 	//compare APN name, if match, no store is needed
-	// search_pt = strstr(pdp_string, apn);
-    _parser.set_timeout(BG96_AT_TIMEOUT);
-	if (!done){
-		//few delay to purge serial ...
-		wait(1);
-		printf("Storing APN %s ...\r\n", apn);
-		//program APN and connection parameter only for PDP context 1, authentication NONE
-		//TODO: add program for other context
-		if (!(_parser.send("AT+QICSGP=%d,1,\"%s\",\"%s\",\"%s\",0", _contextID, &apn[0], &username[0], &password[0])
-        && _parser.recv("OK"))) 
-		{
-			return NSAPI_ERROR_DEVICE_ERROR;
-		}
+        _parser.set_timeout(BG96_AT_TIMEOUT);
+        if (!done){
+            //few delay to purge serial ...
+            wait(1);
+            printf("Storing APN %s ...\r\n", apn);
+            //program APN and connection parameter only for PDP context 1, authentication NONE
+            //TODO: add program for other context
+            if (!(_parser.send("AT+QICSGP=%d,1,\"%s\",\"%s\",\"%s\",0", _contextID, &apn[0], &username[0], &password[0])
+            && _parser.recv("OK"))) 
+            {
+                return NSAPI_ERROR_DEVICE_ERROR;
+            }
+        }
     }
     wait(1);
     _bg96_mutex.unlock();
@@ -930,7 +856,7 @@ bool BG96::updateGNSSLoc(void)
     bool done;
     _bg96_mutex.lock();
     _parser.set_timeout(3000);  
-    done = (_parser.send("AT+QGPSLOC=2") && _parser.recv("+QGPSLOC: %80[^\n]", locationstring));  
+    done = (_parser.send("AT+QGPSLOC=2") && _parser.recv("+QGPSLOC: %s\n", locationstring));  
     _parser.set_timeout(BG96_AT_TIMEOUT);
 //    printf("[BG96Driver]: Received cmd -> %s\r\n", cmd);
 //    printf("[BG96Driver]: Received location string -> \r\n");
@@ -1422,7 +1348,10 @@ int BG96::mqtt_publish(int mqtt_id, int msg_id, int qos, int retain, const char*
         done = false;
         return rc;
     }
-    if ( done && _parser.recv("+QMTPUB: %d,%d,%d", &id, &mid, &res) && res == 0 ) rc = 1;
+    if ( done && _parser.recv("+QMTPUB: %d,%d,%d", &id, &mid, &res) && res == 0 ) {
+        printf("successfully published data.\r\n");
+        rc = 1;
+    }
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
     return rc;
@@ -1455,12 +1384,17 @@ void* BG96::mqtt_checkAvail(int mqtt_id)
     MQTTMessage* msg;
     int id, msg_id;
     _bg96_mutex.lock();
-    _parser.set_timeout(1);
-    int i = _parser.recv("+QMTRECV: %d,%d,\"%[^\"]\",%1548s\r\n", &id, &msg_id, mqtt_topic, mqtt_payload);
+    _parser.set_timeout(1000);
+    int i = _parser.recv("+QMTRECV: %d,%d,\"%256[^\"]\",%1548s\r\n", &id, &msg_id, mqtt_topic, mqtt_payload);
     
     if (i && id == mqtt_id) {
         msg = &mqtt_msg;
         mqtt_payload[strlen(mqtt_payload)-1] = '\0';
+        char * lastslash = strrchr(mqtt_topic, '/');
+        lastslash++;
+        *lastslash = '#';
+        lastslash++;
+        *lastslash = '\0';
         msg->topic.len = strlen(mqtt_topic);
         msg->topic.payload = mqtt_topic;
         msg->msg.len = strlen(mqtt_payload);
@@ -1486,11 +1420,11 @@ int BG96::fs_size(size_t &free_size, size_t &total_size)
     _parser.set_timeout(2000);
     done = _parser.send("AT+QFLDS=\"UFS\"");
     if (done) {
-       done = _parser.recv("+QFLDS: %ul,%ul", &free_size, &total_size) && _parser.recv("OK");
+       done = _parser.recv("+QFLDS: %u,%u", &free_size, &total_size) && _parser.recv("OK");
     }
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
-    return done ? NSAPI_ERROR_DEVICE_ERROR:NSAPI_ERROR_OK;
+    return done ? NSAPI_ERROR_OK : NSAPI_ERROR_DEVICE_ERROR ;
 }
 
 int BG96::fs_nfiles(int &nfiles, size_t &sfiles)
@@ -1501,11 +1435,11 @@ int BG96::fs_nfiles(int &nfiles, size_t &sfiles)
     _parser.set_timeout(2000);
     done = _parser.send("AT+QFLDS");
     if (done) {
-       done = _parser.recv("+QFLDS: %ul,%d", &sfiles, &nfiles) && _parser.recv("OK");
+       done = _parser.recv("+QFLDS: %u,%d", &sfiles, &nfiles) && _parser.recv("OK");
     }
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
-    return done ? NSAPI_ERROR_DEVICE_ERROR:NSAPI_ERROR_OK;
+    return done ? NSAPI_ERROR_OK : NSAPI_ERROR_DEVICE_ERROR;
 }
 
 int BG96::fs_file_size(const char *filename, size_t &filesize)
@@ -1517,11 +1451,11 @@ int BG96::fs_file_size(const char *filename, size_t &filesize)
     _parser.set_timeout(2000);
     done = _parser.send("AT+QFLST=\"%s\"",filename);
     if (done) {
-       done = _parser.recv("+QFLST: \"%80[^\"]\",%ul", dummy, &filesize) && _parser.recv("OK");
+       done = _parser.recv("+QFLST: \"%80[^\"]\",%u", dummy, &filesize) && _parser.recv("OK");
     }
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
-    return done ? NSAPI_ERROR_DEVICE_ERROR:NSAPI_ERROR_OK;   
+    return done ? NSAPI_ERROR_OK : NSAPI_ERROR_DEVICE_ERROR ;
 }
 
 int BG96::fs_delete_file(const char *filename)
@@ -1549,7 +1483,7 @@ int BG96::fs_upload_file(const char *filename, void *data, size_t &lsize)
 
     _bg96_mutex.lock();
     _parser.set_timeout(BG96_1s_WAIT);
-    done = _parser.send("AT+QFUPL=\"%s\",%ul", filename, lsize) && _parser.recv("CONNECT");
+    done = _parser.send("AT+QFUPL=\"%s\",%u", filename, lsize) && _parser.recv("CONNECT");
     if (!done) {
         lsize = 0;
         _bg96_mutex.unlock();
@@ -1562,7 +1496,7 @@ int BG96::fs_upload_file(const char *filename, void *data, size_t &lsize)
         }
     }
     _parser.set_timeout(BG96_1s_WAIT);
-    done = _parser.recv("+QFUPL: %ul, %X\r\n", &upload_size, &checksum);
+    done = _parser.recv("+QFUPL: %u, %X\r\n", &upload_size, &checksum);
     if (!done) {
         printf("BG96: Error uploading file %s\r\n", filename);
         rc = NSAPI_ERROR_DEVICE_ERROR;
@@ -1599,7 +1533,7 @@ int BG96::fs_download_file(const char *filename, void* data, size_t &filesize, i
     _parser.set_timeout(BG96_AT_TIMEOUT);
     size_t fsize;
     int16_t cs;
-    done = _parser.recv("+QFDWL: %ul,%hX\r\n", &fsize, &cs);
+    done = _parser.recv("+QFDWL: %u,%hX\r\n", &fsize, &cs);
     if (done && filesize == fsize) {
         filesize = fsize;
         checksum = cs;
@@ -1641,7 +1575,7 @@ int BG96::fs_read(FILE_HANDLE fh, size_t length, void *data)
     bool done;
     _bg96_mutex.lock();
     _parser.set_timeout(2000);
-    done = _parser.send("AT+QFREAD=%ld, %ul", fh, length) && _parser.recv("CONNECT");
+    done = _parser.send("AT+QFREAD=%ld, %u", fh, length) && _parser.recv("CONNECT");
     if (!done){
         rc = NSAPI_ERROR_DEVICE_ERROR;
         _parser.set_timeout(BG96_AT_TIMEOUT);
@@ -1669,7 +1603,7 @@ int BG96::fs_write(FILE_HANDLE fh, size_t length, void *data)
     bool done;
     _bg96_mutex.lock();
     _parser.set_timeout(5000);
-    done = _parser.send("AT+QFWRITE=%ld, %ul", fh, length) && _parser.recv("CONNECT");
+    done = _parser.send("AT+QFWRITE=%ld, %u", fh, length) && _parser.recv("CONNECT");
     if (!done){
         rc = NSAPI_ERROR_DEVICE_ERROR;
         _parser.set_timeout(BG96_AT_TIMEOUT);
@@ -1696,7 +1630,7 @@ int BG96::fs_seek(FILE_HANDLE fh, size_t offset, FILE_POS position)
     int rc = NSAPI_ERROR_DEVICE_ERROR;
     bool done;
     _bg96_mutex.lock();
-    done = _parser.send("AT+QFSEEK=%ld,%ul,%d", fh, offset, position) && _parser.recv("OK");
+    done = _parser.send("AT+QFSEEK=%ld,%u,%d", fh, offset, position) && _parser.recv("OK");
     if (done) rc = NSAPI_ERROR_OK;
     _bg96_mutex.unlock();
     return rc;
@@ -1710,7 +1644,7 @@ int BG96::fs_get_offset(FILE_HANDLE fh, size_t &offset)
     done = _parser.send("AT+QFPOSITION=%ld", fh);
     if (done) {
         size_t loff=0;
-        done = _parser.recv("+QFPOSITION: %ul\r\n", &loff);
+        done = _parser.recv("+QFPOSITION: %u\r\n", &loff);
         if (done) {
             offset = loff;
             rc = NSAPI_ERROR_OK;
@@ -1731,7 +1665,7 @@ int BG96::fs_truncate(FILE_HANDLE fh, size_t offset)
     done = _parser.send("AT+QFTUCAT=%ld", fh) && _parser.recv("OK");
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
-    return done ? NSAPI_ERROR_DEVICE_ERROR : NSAPI_ERROR_OK;
+    return done ? NSAPI_ERROR_OK : NSAPI_ERROR_DEVICE_ERROR ;
 }
 
 int BG96::fs_close(FILE_HANDLE fh)
@@ -1743,6 +1677,6 @@ int BG96::fs_close(FILE_HANDLE fh)
     done = _parser.send("AT+QFCLOSE=%ld", fh) && _parser.recv("OK");
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
-    return done ? NSAPI_ERROR_DEVICE_ERROR : NSAPI_ERROR_OK;   
+    return done ? NSAPI_ERROR_OK : NSAPI_ERROR_DEVICE_ERROR ;
 }
 

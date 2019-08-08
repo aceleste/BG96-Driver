@@ -144,6 +144,7 @@ public:
     nsapi_error_t       publish(MQTTMessage* message);
     osStatus            dowork();
     bool                isRunning();
+    void                stopRunning();
     MQTTSubscription*   getSubscriptions() {return _sublist;};
     void                setSubscriptions(MQTTSubscription* subs) { _sublist = subs;};
     MQTTSubscription*   findSubscriptionByTopic(const char* topic);
@@ -155,7 +156,7 @@ protected:
 private:
 
     Mutex               _mqtt_mutex;
-    Thread              _mqtt_thread;
+    Thread              *_mqtt_thread;
     BG96*               _bg96;
     BG96TLSSocket*      _tls;
     MQTTClient_Ctx      _ctx;
