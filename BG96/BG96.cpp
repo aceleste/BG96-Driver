@@ -428,10 +428,12 @@ nsapi_error_t BG96::connect(int pdp_id)
 bool BG96::disconnect(void)
 {
     char buff[15];
+    _bg96_mutex.lock();
     _parser.set_timeout(BG96_60s_TO);
     sprintf(buff,"AT+QIDEACT=%d\r",_contextID);
     bool ok = tx2bg96(buff);
     _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock(); 
     return ok;
 }
 
@@ -505,7 +507,7 @@ int BG96::getRSSI(void)
     bool  done=false;
 
     _bg96_mutex.lock();
-    done = _parser.send("AT+CSQ") && _parser.recv("+CSQ: %d,%d",&cs,&er);
+    done = _parser.send("AT+CSQ") && _parser.recv("+CSQ: %d,%d\n",&cs,&er);
     _bg96_mutex.unlock();
 
     return done? cs:0;
@@ -694,9 +696,11 @@ bool BG96::chkRxAvail(int id)
     char  cmd[20];
 
     sprintf(cmd, "+QIURC: \"recv\",%d", id);
-    _parser.set_timeout(1);
+    _bg96_mutex.lock();
+    _parser.set_timeout(1000);
     int i = _parser.recv(cmd);
     _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
     return i;
 }
 
@@ -729,9 +733,10 @@ int32_t BG96::recv(int id, void *data, uint32_t cnt)
 {
     int  rxCount, ret_cnt=0;
 
-    _bg96_mutex.lock();
+    
     chkRxAvail(id);
 
+    _bg96_mutex.lock();
     if( _parser.send("AT+QIRD=%d,%d",id,(int)cnt) && _parser.recv("+QIRD:%d\r\n",&rxCount) ) {
         if( rxCount > 0 ) {
             _parser.getc(); //for some reason BG96 always outputs a 0x0A before the data
@@ -958,6 +963,7 @@ int BG96::send_file(const char* content, const char* filename, bool overrideok)
         _parser.set_timeout(BG96_1s_WAIT);
         done = _parser.send(cmd) && _parser.recv("CONNECT");
         if (!done) {
+            _parser.set_timeout(BG96_AT_TIMEOUT);
             _bg96_mutex.unlock();
             return 0;
         } else { //We are now in transparent mode, send data to stream 
@@ -1146,9 +1152,11 @@ bool BG96::sslChkRxAvail(int client_id)
 {
     char  cmd[20];
     sprintf(cmd, "+QSSLURC: \"recv\",%d", client_id);
+    _bg96_mutex.lock();
     _parser.set_timeout(1);
     bool i = _parser.recv(cmd);
     _parser.set_timeout(BG96_AT_TIMEOUT);
+    _bg96_mutex.unlock();
     return i;
 }
 
@@ -1163,8 +1171,10 @@ int32_t BG96::sslrecv(int client_id, void *data, uint32_t cnt)
 {
     int  rxCount, ret_cnt=0;
 
-    _bg96_mutex.lock();
+
     sslChkRxAvail(client_id);
+
+    _bg96_mutex.lock();
     _parser.set_timeout(BG96_RX_TIMEOUT);
     if (_parser.send("AT+QSSLRECV=%d,%d",client_id,(int)cnt) && _parser.recv("+QSSLRECV:%d\r\n",&rxCount)){
         if ( rxCount > 0 ) {
@@ -1177,8 +1187,6 @@ int32_t BG96::sslrecv(int client_id, void *data, uint32_t cnt)
             ret_cnt = rxCount;
         }  
     }
-    
-    
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
     return ret_cnt;
@@ -1385,7 +1393,7 @@ void* BG96::mqtt_checkAvail(int mqtt_id)
     int id, msg_id;
     _bg96_mutex.lock();
     _parser.set_timeout(1000);
-    int i = _parser.recv("+QMTRECV: %d,%d,\"%256[^\"]\",%1548s\r\n", &id, &msg_id, mqtt_topic, mqtt_payload);
+    int i = _parser.recv("+QMTRECV: %d,%d,\"%256[^\"]\",%s\n", &id, &msg_id, mqtt_topic, mqtt_payload);
     
     if (i && id == mqtt_id) {
         msg = &mqtt_msg;
@@ -1486,6 +1494,7 @@ int BG96::fs_upload_file(const char *filename, void *data, size_t &lsize)
     done = _parser.send("AT+QFUPL=\"%s\",%u", filename, lsize) && _parser.recv("CONNECT");
     if (!done) {
         lsize = 0;
+        _parser.set_timeout(BG96_AT_TIMEOUT);
         _bg96_mutex.unlock();
         return -1;
     } else { //We are now in transparent mode, send data to stream 

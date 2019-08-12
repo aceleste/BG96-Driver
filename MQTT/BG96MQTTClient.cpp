@@ -249,16 +249,22 @@ nsapi_error_t BG96MQTTClient::disconnect()
 
 nsapi_error_t BG96MQTTClient::subscribe(const char* topic, int qos, MQTTMessageHandler handler, void *param) {
     int rc=-1;
+    char * atopic = (char *)malloc(strlen(topic)+1);
+    memcpy(atopic, topic, strlen(topic)+1);
     MQTTSubscription* sub = (MQTTSubscription*) malloc(sizeof(MQTTSubscription));
     if (sub == NULL) return NSAPI_ERROR_NO_MEMORY;
     sub->handler = handler;
     sub->param = param;
     sub->msg_id = getNextMessageId();
     sub->qos = qos;
-    sub->topic.payload = topic;
+    sub->topic.payload = atopic;
     sub->topic.len = strlen(topic);
-    if (!append_subscription(sub)) return NSAPI_ERROR_DEVICE_ERROR;
-    rc = _bg96->mqtt_subscribe(_ctx.mqtt_ctx_id, sub->topic.payload, sub->qos, sub->msg_id);
+    if (findSubscriptionByTopic(atopic) == NULL) { //If not already subscribed, subscribe
+        if (!append_subscription(sub)) return NSAPI_ERROR_DEVICE_ERROR;
+        rc = _bg96->mqtt_subscribe(_ctx.mqtt_ctx_id, sub->topic.payload, sub->qos, sub->msg_id);
+    } else { // already subscribed - no need to resubscribe
+        rc = NSAPI_ERROR_OK;
+    }
     return rc;
 }
 
@@ -269,7 +275,10 @@ nsapi_error_t BG96MQTTClient::unsubscribe(const char* topic)
     if (sub == NULL) return BG96_MQTT_CLIENT_UNSUBSCRIBE_ERROR_TOPIC_NOT_FOUND;
     if (!remove_subscription(sub)) return NSAPI_ERROR_DEVICE_ERROR;
     rc = _bg96->mqtt_unsubscribe(_ctx.mqtt_ctx_id, sub->topic.payload, sub->msg_id);
+    free((void *)sub->topic.payload);
+    sub->topic.payload = NULL;
     free(sub); //we are done with the subscription release memory
+    sub = NULL;
     return rc;
 }
 
@@ -306,6 +315,8 @@ bool BG96MQTTClient::matchTopic(const char* topic1, const char* topic2)
     }
     free(t1);
     free(t2);
+    t1 = NULL;
+    t2 = NULL;
     return rc;
 }
 
