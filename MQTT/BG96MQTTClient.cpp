@@ -1,3 +1,33 @@
+/**
+ * @file BG96MQTTClient.cpp
+ * @author Alain CELESTE (alain.celeste@polaris-innovation.com)
+ * @brief 
+ * @version 0.1
+ * @date 2019-08-14
+ * 
+ * @copyright Copyright (c) 2019
+ * 
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * 
+ */
+
 #include "BG96MQTTClient.h"
 #include "BG96.h"
 #include "BG96TLSSocket.h"
@@ -70,34 +100,22 @@ nsapi_error_t BG96MQTTClient::open(MQTTNetwork_Ctx* network_ctx)
     rc = _bg96->mqtt_open(network_ctx->hostname.payload, network_ctx->port); 
     switch(rc) {
         case 0:
-#if defined(MQTT_DEBUG)
-            printf("Successfully opened MQTT Socket to %s:%d\r\n", network_ctx->hostname.payload, network_ctx->port);
-#endif      
+            debug("Successfully opened MQTT Socket to %s:%d\r\n", network_ctx->hostname.payload, network_ctx->port);    
             return NSAPI_ERROR_OK;
         case BG96_MQTT_NETWORK_ERROR_WRONG_PARAMETER:
-#if defined(MQTT_DEBUG)
-            printf("BG96MQTTClient: Error opening network socket. Wrong parameter.\r\n");
-#endif
+            debug("BG96MQTTClient: Error opening network socket. Wrong parameter.\r\n");
             return NSAPI_ERROR_DEVICE_ERROR;
         case BG96_MQTT_NETWORK_ERROR_MQTT_OCCUPIED:
-#if defined(MQTT_DEBUG)
-            printf("BG96MQTTClient: Error opening network socket. MQTT occupied.\r\n");
-#endif       
+            debug("BG96MQTTClient: Error opening network socket. MQTT occupied.\r\n");      
             return NSAPI_ERROR_DEVICE_ERROR;
         case BG96_MQTT_NETWORK_ERROR_PDP_ACTIVATION_ERROR:
-#if defined(MQTT_DEBUG)
-            printf("BG96MQTTClient: Error opening network socket. Failed to activate PDP.\r\n");
-#endif          
+            debug("BG96MQTTClient: Error opening network socket. Failed to activate PDP.\r\n");         
             return NSAPI_ERROR_DEVICE_ERROR;
         case BG96_MQTT_NETWORK_ERROR_FAIL_DOMAIN_NAME_PARSING:
-#if defined(MQTT_DEBUG)
-            printf("BG96MQTTClient: Error opening network socket. Failed to parse domain name.\r\n");
-#endif            
+            debug("BG96MQTTClient: Error opening network socket. Failed to parse domain name.\r\n");            
             return NSAPI_ERROR_DEVICE_ERROR;
         case BG96_MQTT_NETWORK_ERROR_NETWORK_DISCONNECTED:
-#if defined(MQTT_DEBUG)
-            printf("BG96MQTTClient: Error opening network socket. Network disconnection.\r\n");
-#endif            
+            debug("BG96MQTTClient: Error opening network socket. Network disconnection.\r\n");            
             return NSAPI_ERROR_DEVICE_ERROR;
         default:
             return NSAPI_ERROR_DEVICE_ERROR;
@@ -200,42 +218,30 @@ nsapi_error_t BG96MQTTClient::connect(MQTTConnect_Ctx* ctx)
         _running = true;
         return NSAPI_ERROR_OK;
     }
-    printf("Connect return result: %d and error code: %d\r\n", result.result, result.rc);
+    debug("BG96MQTT: Connect return result: %d and error code: %d\r\n", result.result, result.rc);
     switch (result.rc) {
         case BG96_MQTT_CLIENT_CONNECT_ERROR_BAD_CREDENTIALS:
             rc = NSAPI_ERROR_AUTH_FAILURE;
-#if defined(MQTT_DEBUG)
-            printf("BG96MQTTClient: Connect error. Bad credentials.\r\n");
-#endif
+            debug("BG96MQTTClient: Connect error. Bad credentials.\r\n");
             break;
         case BG96_MQTT_CLIENT_CONNECT_ERROR_IDENTIFIER_REJECTED:
             rc = NSAPI_ERROR_AUTH_FAILURE;
-#if defined(MQTT_DEBUG)
-            printf("BG96MQTTClient: Connect error. Identifier rejected.\r\n");
-#endif
+            debug("BG96MQTTClient: Connect error. Identifier rejected.\r\n");
             break;
         case BG96_MQTT_CLIENT_CONNECT_ERROR_SERVER_UNAVAILABLE:
             rc = NSAPI_ERROR_CONNECTION_TIMEOUT;
-#if defined(MQTT_DEBUG)
-            printf("BG96MQTTClient: Connect error. Server not available.\r\n");
-#endif
+            debug("BG96MQTTClient: Connect error. Server not available.\r\n");
             break;
         case BG96_MQTT_CLIENT_CONNECT_ERROR_UNNACCEPTED_PROTOCOL:
             rc = NSAPI_ERROR_UNSUPPORTED;
-#if defined(MQTT_DEBUG)
-            printf("BG96MQTTClient: Connect error. Protocol not accepted.\r\n");
-#endif
+            debug("BG96MQTTClient: Connect error. Protocol not accepted.\r\n");
             break;
         case BG96_MQTT_CLIENT_CONNECT_ERROR_AT_CMD_TIMEOUT:
             rc = NSAPI_ERROR_DEVICE_ERROR;
-#if defined(MQTT_DEBUG)
-            printf("BG96MQTTClient: Connect error. AT command timed out.\r\n");
-#endif       
+            debug("BG96MQTTClient: Connect error. AT command timed out.\r\n");
             break;
         default:
-#if defined(MQTT_DEBUG)
-            printf("BG96MQTTClient: Connect error (%d)\r\n", result.rc);
-#endif
+            debug("BG96MQTTClient: Connect error (%d)\r\n", result.rc);
             rc =-1 ;     
     }
     return rc;
@@ -287,13 +293,13 @@ bool BG96MQTTClient::matchTopic(const char* topic1, const char* topic2)
     bool rc;
     char * t1 = (char*)malloc(strlen(topic1)+1);
     if (t1 == NULL) {
-        printf("Cannot allocate memory for the topic matching function\r\n");
+        debug("BG96MQTTClient: Cannot allocate memory for the topic matching function\r\n");
         return false;
     }
     strcpy(t1, topic1);
     char * t2 = (char*)malloc(strlen(topic2)+1);
     if (t1 == NULL) {
-        printf("Cannot allocate memory for the topic matching function\r\n");
+        debug("BG96MQTTClient: Cannot allocate memory for the topic matching function\r\n");
         return false;
     }
     strcpy(t2, topic2);    
@@ -416,23 +422,23 @@ static void mqtt_task(BG96MQTTClient* client)
     MQTTSubscription* subp = NULL;
     MQTTMessage* msg = NULL;
     if (client == NULL) {
-        printf("BG96MQTTClient: Error null pointer in mqtt_task.\r\n");
+        debug("BG96MQTTClient: Error null pointer in mqtt_task.\r\n");
     } else {
         while (client->isRunning()) {
             msg = (MQTTMessage *)client->recv();
             if (msg != NULL) {
                 if (msg->msg.payload != NULL) {
-                    //printf("MQTT_TASK: received a message with content: %s.\r\n", msg->msg.payload);
+                    debug("MQTT_TASK: received a message with content: %s.\r\n", msg->msg.payload);
                     if (msg->topic.payload != NULL) {
                         subp = client->findSubscriptionByTopic(msg->topic.payload);
                         if (subp != NULL && subp->handler != NULL) {
-                            //printf("Found handler for the incoming message topic %s.\r\n", msg->topic.payload);
+                            debug("MQTT_TASK: Found handler for the incoming message topic %s.\r\n", msg->topic.payload);
                             subp->handler(msg, subp->param); // handler is responsible for freeing memory hold by msg
                         } else {
-                            printf("Couldn't find handler for subscription topic %s.\r\n",msg->topic.payload);
+                            debug("MQTT_TASK: Couldn't find handler for subscription topic %s.\r\n",msg->topic.payload);
                         }
                     } else {
-                        printf("Topic of received message is NULL.\r\n");
+                        debug("MQTT_TASK: Topic of received message is NULL.\r\n");
                     }
                 }
                 if (msg != NULL) msg = NULL;

@@ -304,23 +304,23 @@ nsapi_error_t BG96::connect(const char *apn, const char *username, const char *p
                     if (done) {
                         switch (stat) {
                         case 0:
-                            printf("BG96: The modem is yet unregistered.\r\n");
+                            debug("BG96: The modem is yet unregistered.\r\n");
                             break;
                         case 1:
-                            printf("BG96: The modem is successfully registered.\r\n");
+                            debug("BG96: The modem is successfully registered.\r\n");
                             registration = true;
                             break;
                         case 2:
-                            printf("BG96: The modem is trying to register.\r\n");
+                            debug("BG96: The modem is trying to register.\r\n");
                             break;
                         case 3:
-                            printf("BG96: The modem registration has been denied.\r\n");
+                            debug("BG96: The modem registration has been denied.\r\n");
                             break;
                         case 4:
-                            printf("BG96: Registration status unknown.\r\n");
+                            debug("BG96: Registration status unknown.\r\n");
                             break;
                         case 5:
-                            printf("BG96: The modem is registered in roaming mode.\r\n");
+                            debug("BG96: The modem is registered in roaming mode.\r\n");
                             registration = true;
                             break;
                         default:
@@ -337,19 +337,19 @@ nsapi_error_t BG96::connect(const char *apn, const char *username, const char *p
                 if (_parser.send("AT+COPS?")) {
                     done = _parser.recv("+COPS: %d, %d, \"%[^\"]\", %d", &mode, &format, telco, &techno);
                     if (done) {
-                        printf("Operator is %s\r\n", telco);
+                        debug("Operator is %s\r\n", telco);
                         switch (techno){
                         case 0:
                         case 3:
-                            printf("Technology is GSM\r\n");
+                            debug("Technology is GSM\r\n");
                             break;
                         case 8:
                         case 4:
-                            printf("Technology is LTE Cat.M1\r\n");
+                            debug("Technology is LTE Cat.M1\r\n");
                             break;
                         case 9:
                         case 5:
-                            printf("Technology is LTE Cat.NB1\r\n");
+                            debug("Technology is LTE Cat.NB1\r\n");
                             break;
                         default:
                             break;
@@ -367,7 +367,7 @@ nsapi_error_t BG96::connect(const char *apn, const char *username, const char *p
        techno++;
 	}
 	if (done) {
-        printf("Checking APN ...\r\n");
+        debug("Checking APN ...\r\n");
         _parser.set_timeout(5000);
         if(_parser.send("AT+QICSGP=%d",_contextID)) {
             done = _parser.recv("+QICSGP: %d,\"%[^\"]\",\"%[^\"]\",\"%[^\"]\",%d\r\n", &type, lapn, lusername, lpassword, &auth);
@@ -378,7 +378,7 @@ nsapi_error_t BG96::connect(const char *apn, const char *username, const char *p
         if (!done){
             //few delay to purge serial ...
             wait(1);
-            printf("Storing APN %s ...\r\n", apn);
+            debug("Storing APN %s ...\r\n", apn);
             //program APN and connection parameter only for PDP context 1, authentication NONE
             //TODO: add program for other context
             if (!(_parser.send("AT+QICSGP=%d,1,\"%s\",\"%s\",\"%s\",0", _contextID, &apn[0], &username[0], &password[0])
@@ -399,7 +399,7 @@ nsapi_error_t BG96::connect(int pdp_id)
 {
     Timer timer_s;
     char cmd[100];
-    printf("PDP activating ...\r\n");
+    debug("PDP activating ...\r\n");
     sprintf(cmd,"AT+QIACT=%d", _contextID);
     _bg96_mutex.lock();
     timer_s.reset();
@@ -408,7 +408,7 @@ nsapi_error_t BG96::connect(int pdp_id)
         done = tx2bg96(cmd);
     }
     if (done)
-        printf("PDP started\r\n\n");
+        debug("PDP started\r\n\n");
         
     //wait(5);
 #if MQTT_DEBUG
@@ -536,8 +536,8 @@ const char *BG96::getIPAddress(char *ipstr)
     _parser.flush();
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
-    //printf("Received %s\r\n", reply);
-    printf("ipstr: %s\r\n", ipstr);
+    //debug("Received %s\r\n", reply);
+    debug("ipstr: %s\r\n", ipstr);
     return done? ipstr:NULL;
 }
 
@@ -863,9 +863,9 @@ bool BG96::updateGNSSLoc(void)
     _parser.set_timeout(3000);  
     done = (_parser.send("AT+QGPSLOC=2") && _parser.recv("+QGPSLOC: %s\n", locationstring));  
     _parser.set_timeout(BG96_AT_TIMEOUT);
-//    printf("[BG96Driver]: Received cmd -> %s\r\n", cmd);
-//    printf("[BG96Driver]: Received location string -> \r\n");
-//    printf("%s\r\n", &locationstring[0]);
+//    debug("[BG96Driver]: Received cmd -> %s\r\n", cmd);
+//    debug("[BG96Driver]: Received location string -> \r\n");
+//    debug("%s\r\n", &locationstring[0]);
 //Test only
     //strcpy(locationstring, "200315.0,54.70573,-1.56611,1.3,163.0,2,0.00,0.0,0.0,131218,08");
     //strcpy(cmd, "QGPSLOC"); 
@@ -949,7 +949,7 @@ int BG96::send_file(const char* content, const char* filename, bool overrideok)
                 upload = true;
             } else {
                 upload = false;
-                printf("BG96: Error trying to delete file %s\r\n", filename);
+                debug("BG96: Error trying to delete file %s\r\n", filename);
                 return 0; //We should be overriding and we can't so we fail.
             }
         } else {
@@ -975,11 +975,11 @@ int BG96::send_file(const char* content, const char* filename, bool overrideok)
         _parser.set_timeout(BG96_1s_WAIT);
         done = _parser.recv("+QFUPL: %u, %X\r\n", &upload_size, &checksum);
         if (!done) {
-            printf("BG96: Error uploading file %s\r\n", filename);
+            debug("BG96: Error uploading file %s\r\n", filename);
             good = 0;
         } else { // should check for upload_size == filesize and checksum ok.
             _parser.recv("OK");
-            printf("BG96: Successfully uploaded file %s\r\n", filename);
+            debug("BG96: Successfully uploaded file %s\r\n", filename);
             good = 1;
         }
     }
@@ -998,7 +998,7 @@ int BG96::configure_cacert_path(const char* path, int sslctx_id)
     _parser.set_timeout(3000);
     done = _parser.send(cmd) && _parser.recv("OK");
     if (done) {
-        printf("BG96: Successfully configured CA certificate path\r\n");
+        debug("BG96: Successfully configured CA certificate path\r\n");
         good = 1;
     } else {
         char errstring[20];
@@ -1019,7 +1019,7 @@ int BG96::configure_client_cert_path(const char* path, int sslctx_id)
     _bg96_mutex.lock();
     done = _parser.send(cmd) && _parser.recv("OK");
     if (done) {
-        printf("BG96: Successfully configured client certificate path\r\n");
+        debug("BG96: Successfully configured client certificate path\r\n");
         good = 1;
     } else {
         good = 0;
@@ -1037,7 +1037,7 @@ int BG96::configure_privkey_path(const char* path, int sslctx_id)
     _bg96_mutex.lock();
     done = _parser.send(cmd) && _parser.recv("OK");
     if (done) {
-        printf("BG96: Successfully configured client key path\r\n");
+        debug("BG96: Successfully configured client key path\r\n");
         good = 1;
     } else {
         good = 0;
@@ -1054,12 +1054,12 @@ int BG96::sslopen(const char* hostname, int port, int pdp_ctx, int client_id, in
     int err=-1;
 
     if (client_id <0 || client_id > 11) {
-        printf("BG96: Wrong Client ID\r\n");
+        debug("BG96: Wrong Client ID\r\n");
         return 0;
     }
 
     if (pdp_ctx <1 || pdp_ctx > 11) {
-        printf("BG96: Wrong PDP Context ID.\r\n");
+        debug("BG96: Wrong PDP Context ID.\r\n");
         return 0;
     }
 
@@ -1070,7 +1070,7 @@ int BG96::sslopen(const char* hostname, int port, int pdp_ctx, int client_id, in
     if (done) _parser.recv("+QSSLOPEN: %d,%d", &cid, &err);
     if (err != 0) done=false; 
     if (!done) {
-        printf("BG96: Error opening TLS socket to host %s\r\n", hostname);
+        debug("BG96: Error opening TLS socket to host %s\r\n", hostname);
     }
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
@@ -1096,14 +1096,14 @@ bool BG96::ssl_client_status(int client_id)
                         &pdp_id,&server_id,&access_mode,ATport,&ssl_id);
     _parser.set_timeout(BG96_AT_TIMEOUT);
     _bg96_mutex.unlock();
-    // printf("TLSState: \r\n");
-    // printf("Client ID: %d\r\n", id);
-    // printf("Server IP: %s\r\n", ip);
-    // printf("Remote Port: %d\r\n", remoteport);
-    // printf("Local Port: %d\r\n", localport);
-    // printf("Socket State: %d\r\n", socket_state);
-    // printf("Access_mode: %d\r\n", access_mode);
-    // printf("AT Port: %s\r\n", ATport);
+    // debug("TLSState: \r\n");
+    // debug("Client ID: %d\r\n", id);
+    // debug("Server IP: %s\r\n", ip);
+    // debug("Remote Port: %d\r\n", remoteport);
+    // debug("Local Port: %d\r\n", localport);
+    // debug("Socket State: %d\r\n", socket_state);
+    // debug("Access_mode: %d\r\n", access_mode);
+    // debug("AT Port: %s\r\n", ATport);
     if (done && id == client_id && socket_state == 2) return true;
     return false;
 
@@ -1341,14 +1341,14 @@ int BG96::mqtt_publish(int mqtt_id, int msg_id, int qos, int retain, const char*
         if (_parser.write((char*)data, (int)amount)) {
             sent = true;
         } else {
-            printf("error while sending data\r\n");
+            debug("BG96: error while sending data\r\n");
             sent = false;
         }
         char c[1] = {'\x1A'};
         if (_parser.write(c,1)) {
             sent = true;
         } else {
-            printf("error while sending Ctrl+Z\r\n");
+            debug("BG96: error while sending Ctrl+Z\r\n");
             sent = false;
         }
         done = sent;
@@ -1357,7 +1357,7 @@ int BG96::mqtt_publish(int mqtt_id, int msg_id, int qos, int retain, const char*
         return rc;
     }
     if ( done && _parser.recv("+QMTPUB: %d,%d,%d", &id, &mid, &res) && res == 0 ) {
-        printf("successfully published data.\r\n");
+        debug("successfully published data.\r\n");
         rc = 1;
     }
     _parser.set_timeout(BG96_AT_TIMEOUT);
@@ -1507,12 +1507,12 @@ int BG96::fs_upload_file(const char *filename, void *data, size_t &lsize)
     _parser.set_timeout(BG96_1s_WAIT);
     done = _parser.recv("+QFUPL: %u, %X\r\n", &upload_size, &checksum);
     if (!done) {
-        printf("BG96: Error uploading file %s\r\n", filename);
+        debug("BG96: Error uploading file %s\r\n", filename);
         rc = NSAPI_ERROR_DEVICE_ERROR;
     } else { // should check for upload_size == filesize and checksum ok.
         lsize = upload_size;
         _parser.recv("OK");
-        printf("BG96: Successfully uploaded file %s\r\n", filename);
+        debug("BG96: Successfully uploaded file %s\r\n", filename);
         rc = NSAPI_ERROR_OK;
     }
     _parser.set_timeout(BG96_AT_TIMEOUT);

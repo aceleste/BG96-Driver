@@ -6,8 +6,8 @@
             "value": "true"
         },
         "bg96-debug_setting": {
-            "help" : "bit value 1 and/or 2 enable debug output, bit value 4 enables mbed driver debug output.",
-            "value": "0x84"
+            "help" : "bit value 1 and/or 2 enable debug output, bit value 4 enables mbed driver debug output. Use 0x84 to turn on. Use 0x0 to turn off",
+            "value": "0x00"
         },
         "bg96-tx": {
             "help": "TX pin for serial connection to BG96 on the NUCLEO Board",

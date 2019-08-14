@@ -28,6 +28,19 @@
 *   @date   1-April-2018
 */
 
+/**
+ * @file BG96Interface.cpp
+ * @author Alain CELESTE (alain.celeste@polaris-innovation.com)
+ * @brief Modifications to provide additional services:
+ * - MQTT
+ * - TLS
+ * - GNSS location
+ * - Filesystem access (UFS on BG96)
+ *
+ * @date 2019-08-14
+ * 
+ */
+
 #include <ctype.h>
 #include "mbed.h"
 #include "BG96.h"
@@ -217,7 +230,7 @@ nsapi_error_t BG96Interface::getNetworkGMTTime(time_t *gmttime)
     int dst;
     int gmtoffset;
     if ( (error = _BG96.getLatesSyncTime(timestr, &dst)) != NSAPI_ERROR_OK) return error;
-    printf("timestr: %s\r\n", timestr);
+   debug("timestr: %s\r\n", timestr);
     sscanf(timestr,"%d/%d/%d,%d:%d:%d%c%d",&t.tm_year,&t.tm_mon,&t.tm_mday,&t.tm_hour,&t.tm_min,&t.tm_sec,&ds_sign,&gmtoffset);//yy/MM/dd,hh:mm:ss±zz
     // if (dst == '-') t.tm_gmtoff = - (gmtoffset * 900);
     // t.tm_gmtoff = gmtoffset * 900;

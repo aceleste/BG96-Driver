@@ -29,6 +29,21 @@
 *   @date   1-April-2018
 */
 
+/**
+ * @file BG96Interface.h
+ * @author Alain CELESTE (alain.celeste@polaris-innovation.com)
+ * @brief Modifications to provide additional services:
+ * - MQTT
+ * - TLS
+ * - GNSS location
+ * - Filesystem access (UFS on BG96)
+ *
+ * @date 2019-08-14
+ * 
+ * @copyright Copyright (c) 2019
+ * 
+ */
+
 #ifndef __BG96Interface_H__
 #define __BG96Interface_H__
 

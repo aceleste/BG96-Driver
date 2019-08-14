@@ -1,3 +1,33 @@
+/**
+ * @file BG96TLSSocket.cpp
+ * @author Alain CELESTE (alain.celeste@polaris-innovation.com)
+ * @brief 
+ * @version 0.1
+ * @date 2019-08-14
+ * 
+ * @copyright Copyright (c) 2019 Polaris Innovation
+ * 
+ *  * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * 
+ */
+
 #include "BG96TLSSocket.h"
 #include "BG96.h"
 #include "rtos.h"
@@ -23,14 +53,14 @@ nsapi_error_t BG96TLSSocket::set_root_ca_cert(const char* cacert)
     static char ca_filename[80];
     memset(ca_filename, 0, 80);
     if (cacert == NULL) {
-        printf("BG96TLSSocket: error - invalid CA certificate.\r\n");
+       debug("BG96TLSSocket: error - invalid CA certificate.\r\n");
         return rc;
     }
 
     if ( bg96->send_file(cacert, "cacert.pem", true) ) {
         strcpy(ca_filename, "cacert.pem");
     } else {
-        printf("BG96TLSSocket: Error transferring CA certificate file to modem.\r\n");
+       debug("BG96TLSSocket: Error transferring CA certificate file to modem.\r\n");
         rc = NSAPI_ERROR_DEVICE_ERROR;
         return rc;
     }
@@ -38,7 +68,7 @@ nsapi_error_t BG96TLSSocket::set_root_ca_cert(const char* cacert)
     if ( configure_cacert_path(ca_filename) ){
         rc = NSAPI_ERROR_OK;
     } else {
-        printf("BG96TSLSocket: Error while configuring CA path in TLS Socket.\r\n");
+       debug("BG96TSLSocket: Error while configuring CA path in TLS Socket.\r\n");
         rc = NSAPI_ERROR_DEVICE_ERROR;
     }
     return rc;
@@ -62,14 +92,14 @@ nsapi_error_t BG96TLSSocket::set_cert_pem(const char * client_cert_pem)
     static char cert_pem_filename[80];
     memset(cert_pem_filename, 0, 80);
     if (client_cert_pem == NULL) {
-        printf("BG96TLSSocket: error - invalid client certificate.\r\n");
+       debug("BG96TLSSocket: error - invalid client certificate.\r\n");
         return rc;
     }
 
     if ( bg96->send_file(client_cert_pem, "clientcert.pem", true) ) {
         strcpy(cert_pem_filename, "clientcert.pem");
     } else {
-        printf("BG96TLSSocket: Error transferring client certificate file to modem.\r\n");
+       debug("BG96TLSSocket: Error transferring client certificate file to modem.\r\n");
         rc = NSAPI_ERROR_DEVICE_ERROR;
         return rc;
     }
@@ -77,7 +107,7 @@ nsapi_error_t BG96TLSSocket::set_cert_pem(const char * client_cert_pem)
     if ( configure_client_cert_path(cert_pem_filename) ){
         rc = NSAPI_ERROR_OK;
     } else {
-        printf("BG96TSLSocket: Error while configuring client cert path in TLS Socket.\r\n");
+       debug("BG96TSLSocket: Error while configuring client cert path in TLS Socket.\r\n");
         rc = NSAPI_ERROR_DEVICE_ERROR;
     }
     return rc;
@@ -89,14 +119,14 @@ nsapi_error_t BG96TLSSocket::set_privkey_pem(const char * client_private_key_pem
     static char privkey_pem_filename[80];
     memset(privkey_pem_filename, 0, 80);
     if (client_private_key_pem == NULL) {
-        printf("BG96TLSSocket: error - invalid client key.\r\n");
+       debug("BG96TLSSocket: error - invalid client key.\r\n");
         return rc;
     }
 
     if ( bg96->send_file(client_private_key_pem, "privkey.pem", true) ) {
         strcpy(privkey_pem_filename, "privkey.pem");
     } else {
-        printf("BG96TLSSocket: Error transferring private key file to modem.\r\n");
+       debug("BG96TLSSocket: Error transferring private key file to modem.\r\n");
         rc = NSAPI_ERROR_DEVICE_ERROR;
         return rc;
     }
@@ -104,7 +134,7 @@ nsapi_error_t BG96TLSSocket::set_privkey_pem(const char * client_private_key_pem
     if ( configure_client_cert_path(privkey_pem_filename) ){
         rc = NSAPI_ERROR_OK;
     } else {
-        printf("BG96TSLSocket: Error while configuring private key path in TLS Socket.\r\n");
+       debug("BG96TSLSocket: Error while configuring private key path in TLS Socket.\r\n");
         rc = NSAPI_ERROR_DEVICE_ERROR;
     }
     return rc;
@@ -147,17 +177,17 @@ nsapi_error_t BG96TLSSocket::connect(const char* hostname, int port)
 {
     int rc = NSAPI_ERROR_OK;
     // if (!bg96->isConnected()) {
-    //     printf("BG96TLSSocket: Should connect to APN first.\r\n");
+    //    debug("BG96TLSSocket: Should connect to APN first.\r\n");
     //     return NSAPI_ERROR_DEVICE_ERROR;
     // }
     // wait(4);
     if (bg96->sslopen(hostname, port, pdp_ctx, client_id, sslctx_id)) {
         rc = NSAPI_ERROR_OK;
-        printf("\r\n\r\n\r\nBG96TLSSocket: Successfully opened TLS connection to %s\r\n", hostname);
+       debug("\r\n\r\n\r\nBG96TLSSocket: Successfully opened TLS connection to %s\r\n", hostname);
     } else {
         char errstring[80];
         bg96->getError(errstring);
-        printf("BG96TLSSocket %s opening TLS Socket\r\n", errstring);
+       debug("BG96TLSSocket %s opening TLS Socket\r\n", errstring);
         rc = NSAPI_ERROR_DEVICE_ERROR;
     }
     return rc;
